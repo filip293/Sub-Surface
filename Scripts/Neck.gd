@@ -6,6 +6,8 @@ extends Node3D
 @export var forward_distance := 0.4
 @export var forward_duration := 0.8
 
+@onready var Crosshair = $"../../POV/CanvasLayer/Crosshair"
+
 var wallet_dialogue_played := false
 var wallet_standup_done := false
 var standup:= false
@@ -59,4 +61,5 @@ func exit_seat():
 	await tween.finished
 	standup = true
 	Globals.playermoveallow = true
+	Crosshair.visible = true
 	$"../../Car1/body003_side_chair_0/StaticBody3D/CollisionShape3D".set_deferred("disabled", false)

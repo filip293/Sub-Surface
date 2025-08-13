@@ -2,6 +2,7 @@ extends RayCast3D
 
 @onready var label = $"../../../../POV/CanvasLayer/Label"
 @onready var neck := $"../.."
+@onready var Crosshair = $"../../../../POV/CanvasLayer/Crosshair"
 
 var item_original_transforms: Dictionary = {}
 var active_item: Node3D = null
@@ -75,6 +76,7 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 			collider_shape.disabled = true
 
 		Globals.playermoveallow = false
+		Crosshair.visible = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 		active_item = item
@@ -93,6 +95,7 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		if neck.standup:
 			Globals.playermoveallow = true
+			Crosshair.visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 		await Globals.calltime(1)
