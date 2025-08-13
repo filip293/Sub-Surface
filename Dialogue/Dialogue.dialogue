@@ -1,0 +1,7 @@
+~ Subway
+[center]?????: [center][speed=0.3]Where am I? This isn't my line...
+=> END
+
+~ Id
+[center]?????: [center][speed=0.3]I don't even recognize this name. James? Who's James?[next=auto]
+=> END
