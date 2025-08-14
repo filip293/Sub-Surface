@@ -3,11 +3,18 @@ extends RayCast3D
 @onready var label = $"../../../../POV/CanvasLayer/Label"
 @onready var neck := $"../.."
 @onready var Crosshair = $"../../../../POV/CanvasLayer/Crosshair"
-
+@onready var SKeyPadText = $"../../../../Security Keypad/Security Keypad Pivot/Security Keypad/TextKeypad"
+@onready var KeypadAudio = $"../../../../Security Keypad/Security Keypad Pivot/Security Keypad/Sound"
 var item_original_transforms: Dictionary = {}
 var active_item: Node3D = null
 var item_active: bool = false
 var item_tween: Tween = null
+
+var keypad_sounds = [
+	preload("res://Sounds/ButtonPress.mp3"),
+	preload("res://Sounds/Accept.mp3"),
+	preload("res://Sounds/Wrong.mp3")
+]
 
 func _physics_process(delta: float) -> void:
 	# If holding an item, allow putting it back without raycast
@@ -35,6 +42,34 @@ func _physics_process(delta: float) -> void:
 
 		# Other interactables
 		elif collider.has_method("whoami") and not collider.special:
+			if Input.is_action_just_pressed("Interact"):
+				if collider.get_group() == "Keypad":
+					if collider.whoami() == "OK":
+						if SKeyPadText.mesh.text.length() < 4 or int(SKeyPadText.mesh.text) != 0814:
+							KeypadAudio.stop()
+							KeypadAudio.stream = keypad_sounds[2]
+							KeypadAudio.play()
+							SKeyPadText.mesh.text = "Try Again"
+						else:
+							KeypadAudio.stop()
+							KeypadAudio.stream = keypad_sounds[1]
+							KeypadAudio.play()
+							SKeyPadText.mesh.text = "Access Granted"
+					elif collider.whoami() == "CLR":
+						KeypadAudio.stop()
+						KeypadAudio.stream = keypad_sounds[0]
+						KeypadAudio.play()
+						SKeyPadText.mesh.text = ""
+					else:
+						KeypadAudio.stop()
+						KeypadAudio.stream = keypad_sounds[0]
+						KeypadAudio.play()
+						if SKeyPadText.mesh.text.length() < 4:
+							SKeyPadText.mesh.text += collider.whoami()
+						else:
+							SKeyPadText.mesh.text = ""
+							SKeyPadText.mesh.text += collider.whoami()
+							
 			label.text = "[E] To interact"
 	else:
 		label.text = ""

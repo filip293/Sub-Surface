@@ -1,5 +1,6 @@
 extends StaticBody3D
 
+@export var group: String = ""
 @export var whoami_value = "Name"
 @export var special: bool = false
 @export var title: String = ""
@@ -18,6 +19,9 @@ func get_title():
 func get_description():
 	return description
 
+func get_group():
+	return group
+	
 func get_interaction_node() -> Node3D:
 	return self
 
