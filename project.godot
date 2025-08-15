@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Sub-Surface"
-run/main_scene="res://Sub_Surface.tscn"
+run/main_scene="res://Scripts/Sub_Surface.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
