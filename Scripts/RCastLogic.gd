@@ -12,7 +12,9 @@ var item_active: bool = false
 var item_tween: Tween = null
 
 var keypad_active := false
-
+var brrsound := true
+var EndOfKeypad := false
+var MannequinAnimation := false
 
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
@@ -21,6 +23,11 @@ var keypad_sounds = [
 ]
 
 func _physics_process(delta: float) -> void:
+	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
+		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
+	
+	
+	
 	if item_active:
 		label.text = "[E] Put back"
 		if Input.is_action_just_pressed("Interact"):
@@ -70,7 +77,34 @@ func _physics_process(delta: float) -> void:
 							Globals.mouse_sensitivity *= 4
 							Globals.playermoveallow = true
 							await Globals.calltime(1)
+							$"../../../../Car1/TempWall/CollisionShape3D".disabled = false
 							$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Fall".play("Fall")
+							await Globals.calltime(2)
+							$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".stop()
+							var lights = [
+							$"../../../../Car1/body003_Body_0/OmniLight3D", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D2", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D3", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D4", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D5", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D6", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D7", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D8", 
+							$"../../../../Car1/body003_Body_0/OmniLight3D9"
+							]
+							for light in lights:
+								light.visible = false
+							brrsound = false
+							$"../../../../Car1/mannequin".visible = true
+							MannequinAnimation = true
+							await Globals.calltime(2)
+							for light in lights:
+								light.visible = true
+							brrsound = true
+							$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".play()
+							EndOfKeypad = true
+							$"../../../../Car1/TempWall/CollisionShape3D".disabled = true
+							
 
 							for button in keypad_path.get_children():
 								var collider2 = button.get_node_or_null("CollisionShape3D")
@@ -198,3 +232,31 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		# --- Wallet stand-up trigger, first time only ---
 		if item.name == "Wallet":
 			await neck.wallet_put_down()
+
+
+func _RemoveDoll(body: Node3D) -> void:
+	if $"../../../../Car1/mannequin".visible == true and EndOfKeypad:
+		$"../../../../Car1/mannequin/Head".play("HeadLookBack")
+		await Globals.calltime(1.9)
+		$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".stop()
+		var lights = [
+		$"../../../../Car1/body003_Body_0/OmniLight3D", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D2", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D3", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D4", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D5", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D6", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D7", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D8", 
+		$"../../../../Car1/body003_Body_0/OmniLight3D9"
+		]
+		for light in lights:
+			light.visible = false
+		brrsound = false
+		await Globals.calltime(0.1)
+		$"../../../../Car1/mannequin".visible = false
+		MannequinAnimation = false
+		$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".play()
+		for light in lights:
+			light.visible = true
+		brrsound = true
