@@ -48,6 +48,7 @@ func _pickup_key() -> void:
 	if not Globals.player_keys.has(key_id):
 		Globals.player_keys.append(key_id)
 		print("Player picked up key: ", key_id)
+		$/root/Node3D/Player/KeyPickup.play()
 	queue_free()
 
 func _toggle_door() -> void:
