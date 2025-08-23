@@ -10,7 +10,7 @@ extends Node3D
 
 var wallet_dialogue_played := false
 var wallet_standup_done := false
-var standup:= false
+var standup := false
 
 func _ready():
 	position.y = crouch_height
@@ -31,6 +31,11 @@ func wallet_put_down():
 		wallet_standup_done = true
 		await exit_seat()
 
+# --- Utility: pick shortest rotation path ---
+func shortest_angle(from: float, to: float) -> float:
+	var difference = fmod((to - from) + PI, TAU) - PI
+	return from + difference
+
 func exit_seat():
 	var player = get_node("/root/Node3D/Player")
 	if not player:
@@ -40,9 +45,11 @@ func exit_seat():
 	var tween = create_tween()
 	tween.set_parallel(true)
 
-	# --- Step 1: Rotate player to 180° ---
-	if abs(player.rotation_degrees.y - 180) > 0.1:
-		tween.tween_property(player, "rotation_degrees:y", 180.0, 0.5)
+	# --- Step 1: Rotate player (shortest path to 180°) ---
+	var current_yaw = player.rotation.y
+	var target_yaw = shortest_angle(current_yaw, deg_to_rad(180))
+	if abs(current_yaw - target_yaw) > 0.01:
+		tween.tween_property(player, "rotation:y", target_yaw, 0.5)
 
 	# Wait for rotation to finish
 	await tween.finished
@@ -56,7 +63,10 @@ func exit_seat():
 
 	var forward_vector = -player.transform.basis.z * forward_distance
 	var target_position = player.global_transform.origin + forward_vector
-	tween.tween_property(player, "global_transform:origin", target_position, forward_duration).from(player.global_transform.origin)
+	tween.tween_property(
+		player, "global_transform:origin",
+		target_position, forward_duration
+	).from(player.global_transform.origin)
 
 	await tween.finished
 	standup = true
