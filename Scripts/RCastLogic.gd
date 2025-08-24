@@ -11,6 +11,8 @@ var active_item: Node3D = null
 var item_active: bool = false
 var item_tween: Tween = null
 
+var first = true
+
 var keypad_active := false
 var brrsound := true
 var EndOfKeypad := false
@@ -139,9 +141,18 @@ func _physics_process(delta: float) -> void:
 				
 				if collider.whoami() == "Keypad" and Input.is_action_just_pressed("Interact") and not keypad_active:
 					enter_keypad()
+					
+				if collider.whoami() == "Chalkboard" and first:
+					$"../../../../Car2/Classroom/ChalkBoard/Chalk".play("LightsAndSound")
+					first = false
+					await Globals.calltime(6)
+					$"../../../../Car2/Desk/RootNode/Desk_Drawer3/Key/CollisionShape3D".disabled = false
+					$"../../../../Car2/Desk/Desk".play("Desk")
+					
 			
-			if collider.whoami() == "Keypad":
+			if collider.whoami() == "Keypad" or collider.whoami() == "Chalkboard":
 				label.text = "[E] To interact"
+				
 	else:
 		label.text = ""
 
