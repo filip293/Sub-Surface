@@ -76,3 +76,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			camera_rot.x += rotation_to_apply_on_x_axis;
 			neck.rotation_degrees = camera_rot
+
+
+func _OutsideSub(body: Node3D) -> void:
+	$"../Car1/Outside/Outside".play("Outside")
+
+
+func _InsideSub(body: Node3D) -> void:
+	$"../Car1/Outside/Outside".play("Inside")

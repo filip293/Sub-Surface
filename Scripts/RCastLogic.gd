@@ -6,17 +6,23 @@ extends RayCast3D
 @onready var SKeyPadText = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/TextKeypad"
 @onready var KeypadAudio = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Sound"
 @onready var keypad_path = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad"
+
+# Doll + scream
+@onready var doll: Node3D = $"../../../../Car2/Doll"
+@onready var doll_scream: AudioStreamPlayer3D = $"../../../../Car2/Doll/Scream"
+
 var item_original_transforms: Dictionary = {}
 var active_item: Node3D = null
 var item_active: bool = false
 var item_tween: Tween = null
 
 var first = true
-
 var keypad_active := false
 var brrsound := true
 var EndOfKeypad := false
 var MannequinAnimation := false
+
+var doll_shaking := false
 
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
@@ -148,6 +154,7 @@ func _physics_process(delta: float) -> void:
 					await Globals.calltime(6)
 					$"../../../../Car2/Desk/RootNode/Desk_Drawer3/Key/CollisionShape3D".disabled = false
 					$"../../../../Car2/Desk/Desk".play("Desk")
+					$"../../../../Car3".visible = true
 					
 			
 			if collider.whoami() == "Keypad" or collider.whoami() == "Chalkboard":
@@ -155,7 +162,6 @@ func _physics_process(delta: float) -> void:
 				
 	else:
 		label.text = ""
-
 
 
 func enter_keypad():
@@ -196,7 +202,7 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		item_tween = create_tween()
 		item_tween.tween_property(item, "global_transform", new_transform, 1.0)\
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		
+
 		var collider_shape = item.find_child("CollisionShape3D", true, false)
 		if collider_shape: collider_shape.disabled = true
 
@@ -206,7 +212,11 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		active_item = item
 		item_active = true
 
-		if item.name == "Wallet": neck.wallet_picked_up()
+		if item.name == "Wallet":
+			neck.wallet_picked_up()
+
+		if item == doll:
+			item_tween.finished.connect(start_doll_shake)
 
 	elif item_active and active_item == item:
 		var orig_transform: Transform3D = item_original_transforms[path_str]["transform"]
@@ -226,7 +236,38 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		active_item = null
 		item_active = false
 
-		if item.name == "Wallet": await neck.wallet_put_down()
+		if item.name == "Wallet":
+			await neck.wallet_put_down()
+
+		if item == doll:
+			stop_doll_shake()
+
+
+func start_doll_shake() -> void:
+	doll_shaking = true
+	if not doll_scream.playing:
+		doll_scream.play()
+	shake_doll()
+	# Stop after 4 seconds automatically
+	await get_tree().create_timer(4.0).timeout
+	stop_doll_shake()
+
+func stop_doll_shake() -> void:
+	doll_shaking = false
+
+func shake_doll() -> void:
+	if not doll_shaking: return
+	var rand_rot = Vector3(
+		randf_range(-0.1, 0.1),
+		randf_range(-0.1, 0.1),
+		randf_range(-0.1, 0.1)
+	)
+	doll.rotate_x(rand_rot.x)
+	doll.rotate_y(rand_rot.y)
+	doll.rotate_z(rand_rot.z)
+	await get_tree().create_timer(0.03).timeout
+	shake_doll()
+
 
 func _RemoveDoll(body: Node3D) -> void:
 	if $"../../../../Car1/mannequin".visible == true and EndOfKeypad:
