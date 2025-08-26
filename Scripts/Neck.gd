@@ -41,7 +41,8 @@ func exit_seat():
 	if not player:
 		push_warning("Player node not found")
 		return
-	
+		
+	Globals.playerlookallow = false
 	var tween = create_tween()
 	tween.set_parallel(true)
 
@@ -71,5 +72,6 @@ func exit_seat():
 	await tween.finished
 	standup = true
 	Globals.playermoveallow = true
+	Globals.playerlookallow = true
 	Crosshair.visible = true
 	$"../../Car1/body003_side_chair_0/StaticBody3D/CollisionShape3D".set_deferred("disabled", false)

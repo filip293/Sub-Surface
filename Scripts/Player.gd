@@ -79,8 +79,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _OutsideSub(body: Node3D) -> void:
-	$"../Car1/Outside/Outside".play("Outside")
+	$"../Outside/Outside".play("Outside")
+	print("triggered")
 
 
 func _InsideSub(body: Node3D) -> void:
-	$"../Car1/Outside/Outside".play("Inside")
+	$"../Outside/Outside".play("Inside")
+	print("triggered2")

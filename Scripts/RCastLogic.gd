@@ -95,6 +95,7 @@ func _physics_process(delta: float) -> void:
 							KeypadAudio.stream = keypad_sounds[1]
 							KeypadAudio.play()
 							SKeyPadText.mesh.text = "Accept"
+							$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/NumOK/CollisionShape3D".disabled = true
 							$"../../../Player".play_backwards("Fov")
 							Globals.mouse_sensitivity *= 4
 							Globals.playermoveallow = true
@@ -149,12 +150,23 @@ func _physics_process(delta: float) -> void:
 					enter_keypad()
 					
 				if collider.whoami() == "Chalkboard" and first:
+					var door = $"../../../../Car2/StaticBody3D"
+					if door and door.has_method("_toggle_door"):
+						if door.is_open:
+							door._toggle_door()   # force close if open
+						$"../../../../Car2/StaticBody3D/CollisionShape3D".disabled = true
+						
+
 					$"../../../../Car2/Classroom/ChalkBoard/Chalk".play("LightsAndSound")
+					$"../../../../Car2/Classroom/ChalkBoard/group1802101336/StaticBody3D/CollisionShape3D".disabled = true
 					first = false
 					await Globals.calltime(6)
 					$"../../../../Car2/Desk/RootNode/Desk_Drawer3/Key/CollisionShape3D".disabled = false
 					$"../../../../Car2/Desk/Desk".play("Desk")
 					$"../../../../Car3".visible = true
+					$"../../../../Car1".queue_free()
+					$"../../../../Newspaper".queue_free()
+					$"../../../../Wallet".queue_free()
 					
 			
 			if collider.whoami() == "Keypad" or collider.whoami() == "Chalkboard":

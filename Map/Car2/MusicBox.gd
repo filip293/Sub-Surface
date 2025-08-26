@@ -35,7 +35,11 @@ func _on_area_3d_body_entered(body: Node3D) -> void:
 
 func _on_area_3d_2_body_entered(body: Node3D) -> void:
 	if first2 and MusicBoxFinish:
+		first2 = false
 		$"../Area3D2/ChildrenLaugh".play()
 		await Globals.calltime(0.4)
 		$"../Area3D2/ChildrenLaugh2".play()
-		first2 = false
+		await Globals.calltime(0.4)
+		$"../Area3D2/ChildrenLaugh3".play()
+		await Globals.calltime(0.4)
+		$"../Area3D2/ChildrenLaugh4".play()

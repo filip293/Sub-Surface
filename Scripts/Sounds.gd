@@ -10,7 +10,7 @@ func _process(delta: float) -> void:
 	if $/root/Node3D/Player/Neck/TrainSound.is_playing() == false:
 		$/root/Node3D/Player/Neck/TrainSound.play()
 	
-	if not $"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr".is_playing() and RCastLogic.brrsound == true:
+	if not $"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr".is_playing() and RCastLogic.brrsound == true and $"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr" != null:
 		var lights = [
 			$"../../../Car1/body003_Body_0/OmniLight3D/LightBrr",
 			$"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr",
