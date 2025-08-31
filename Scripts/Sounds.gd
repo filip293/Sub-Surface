@@ -7,34 +7,37 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if $/root/Node3D/Player/Neck/TrainSound.is_playing() == false:
-		$/root/Node3D/Player/Neck/TrainSound.play()
-	
-	if not $"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr".is_playing() and RCastLogic.brrsound == true and $"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr" != null:
-		var lights = [
-			$"../../../Car1/body003_Body_0/OmniLight3D/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D3/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D4/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D5/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D6/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D7/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D8/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D9/LightBrr"
-		]
+	# Try to get Car1 node safely
+	var car = get_node_or_null("../../../Car1")
+	if car == null:
+		return # Car1 is gone, nothing to do
+
+	# Gather lights safely
+	var light_paths = [
+		"body003_Body_0/OmniLight3D/LightBrr",
+		"body003_Body_0/OmniLight3D2/LightBrr",
+		"body003_Body_0/OmniLight3D3/LightBrr",
+		"body003_Body_0/OmniLight3D4/LightBrr",
+		"body003_Body_0/OmniLight3D5/LightBrr",
+		"body003_Body_0/OmniLight3D6/LightBrr",
+		"body003_Body_0/OmniLight3D7/LightBrr",
+		"body003_Body_0/OmniLight3D8/LightBrr",
+		"body003_Body_0/OmniLight3D9/LightBrr"
+	]
+
+	var lights: Array = []
+	for path in light_paths:
+		var light = car.get_node_or_null(path)
+		if light:
+			lights.append(light)
+
+	# Check first light for state safely
+	if lights.size() > 0 and RCastLogic.brrsound:
+		if is_instance_valid(lights[1]) and not lights[1].is_playing():
+			for light in lights:
+				if is_instance_valid(light):
+					light.play()
+	elif not RCastLogic.brrsound:
 		for light in lights:
-			light.play()
-	elif RCastLogic.brrsound == false:
-		var lights = [
-			$"../../../Car1/body003_Body_0/OmniLight3D/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D2/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D3/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D4/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D5/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D6/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D7/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D8/LightBrr",
-			$"../../../Car1/body003_Body_0/OmniLight3D9/LightBrr"
-		]
-		for light in lights:
-			light.stop()
+			if is_instance_valid(light):
+				light.stop()
