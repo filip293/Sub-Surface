@@ -24,7 +24,9 @@ func _ready() -> void:
 	await DialogueManager.dialogue_ended
 	
 	Globals.playerlookallow = true
-	
+	$"../Car3/Black_M/AnimationPlayer2".play("GoToSeat")
+	await Globals.calltime(0.1)
+	$"../Car3/Black_M/AnimationPlayer2".pause()
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():

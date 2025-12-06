@@ -1,5 +1,7 @@
 extends StaticBody3D
 
+@export_multiline var read_text: String = "" 
+
 @export var group: String = ""
 @export var whoami_value = "Name"
 @export var special: bool = false

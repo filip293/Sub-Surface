@@ -6,10 +6,15 @@ extends RayCast3D
 @onready var SKeyPadText = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/TextKeypad"
 @onready var KeypadAudio = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Sound"
 @onready var keypad_path = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad"
-
-# Doll + scream
 @onready var doll: Node3D = $"../../../../Car2/Doll"
 @onready var doll_scream: AudioStreamPlayer3D = $"../../../../Car2/Doll/Scream"
+
+@onready var black_m: Node3D = $"../../../../Car3/Black_M"
+@onready var black_m_animation: AnimationPlayer = $"../../../../Car3/Black_M/AnimationPlayer2"
+
+@export_group("Reading UI System")
+@export var read_ui_container: Control 
+@export var story_label: Label
 
 var item_original_transforms: Dictionary = {}
 var active_item: Node3D = null
@@ -24,6 +29,12 @@ var MannequinAnimation := false
 
 var doll_shaking := false
 
+var is_reading := false
+var r_key_was_pressed := false
+
+var monster_active := false
+var monster_seen := false
+
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
 	preload("res://Sounds/Accept.mp3"),
@@ -35,9 +46,27 @@ func _physics_process(delta: float) -> void:
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
 	
 	if item_active:
-		label.text = "[E] Put back"
+		var can_read = "read_text" in active_item and active_item.read_text != ""
+		
+		if is_reading:
+			label.text = "" 
+		elif can_read:
+			label.text = "[E] Put back    [R] Read"
+		else:
+			label.text = "[E] Put back"
+		
+		if can_read and Input.is_key_pressed(KEY_R):
+			if not r_key_was_pressed:
+				r_key_was_pressed = true
+				_toggle_reading_mode()
+		else:
+			r_key_was_pressed = false
+
 		if Input.is_action_just_pressed("Interact"):
-			handle_item_interaction(active_item, Vector3.ZERO)
+			if is_reading:
+				_toggle_reading_mode()
+			else:
+				handle_item_interaction(active_item, Vector3.ZERO)
 		return
 		
 	if keypad_active:
@@ -176,6 +205,38 @@ func _physics_process(delta: float) -> void:
 		label.text = ""
 
 
+func _toggle_reading_mode():
+	if not read_ui_container or not story_label:
+		printerr("RayCast Error: ReadUI Container or Label not assigned in Inspector!")
+		return
+
+	is_reading = !is_reading
+	
+	if is_reading:
+		print("Attempting to read...")
+		if "read_text" in active_item:
+			print("Found variable! The text is: ", active_item.read_text)
+			story_label.text = active_item.read_text
+		else:
+			print("ERROR: This item does not have a 'read_text' variable!")
+			story_label.text = "Error: No text found on object."
+			
+		read_ui_container.visible = true
+		
+		read_ui_container.modulate.a = 0.0
+		read_ui_container.scale = Vector2(0.9, 0.9)
+		read_ui_container.pivot_offset = read_ui_container.size / 2 
+		
+		var tween = create_tween().set_parallel(true)
+		tween.tween_property(read_ui_container, "modulate:a", 1.0, 0.2)
+		tween.tween_property(read_ui_container, "scale", Vector2(1.0, 1.0), 0.2)\
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			
+	else:
+		var tween = create_tween()
+		tween.tween_property(read_ui_container, "modulate:a", 0.0, 0.15)
+		tween.tween_callback(func(): read_ui_container.visible = false)
+
 func enter_keypad():
 	keypad_active = true
 	Globals.mouse_sensitivity /= 4
@@ -231,6 +292,9 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 			item_tween.finished.connect(start_doll_shake)
 
 	elif item_active and active_item == item:
+		if is_reading:
+			_toggle_reading_mode()
+
 		var orig_transform: Transform3D = item_original_transforms[path_str]["transform"]
 
 		item_tween = create_tween()
@@ -244,6 +308,10 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		await Globals.calltime(1)
 		var collider_shape = item.find_child("CollisionShape3D", true, false)
 		if collider_shape: collider_shape.disabled = false
+
+		if item.name == "Clipboard" and not monster_active:
+			monster_active = true
+			black_m.visible = true
 
 		active_item = null
 		item_active = false
@@ -260,7 +328,6 @@ func start_doll_shake() -> void:
 	if not doll_scream.playing:
 		doll_scream.play()
 	shake_doll()
-	# Stop after 4 seconds automatically
 	await get_tree().create_timer(4.0).timeout
 	stop_doll_shake()
 
@@ -301,3 +368,10 @@ func _RemoveDoll(body: Node3D) -> void:
 		$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".play()
 		for light in lights: light.visible = true
 		brrsound = true
+
+func _on_visible_on_screen_notifier_3d_screen_entered() -> void:
+	if monster_active and not monster_seen:
+		monster_seen = true
+		$"../../../../Car3/Black_M/Jumpscare".play()
+		await Globals.calltime(1)
+		black_m_animation.play("GoToSeat")
