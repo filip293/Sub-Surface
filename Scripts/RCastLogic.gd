@@ -9,6 +9,8 @@ extends RayCast3D
 @onready var doll: Node3D = $"../../../../Car2/Doll"
 @onready var doll_scream: AudioStreamPlayer3D = $"../../../../Car2/Doll/Scream"
 
+@onready var ambiance_music = $"../../../../AmbianceMUSIC"
+
 @onready var black_m: Node3D = $"../../../../Car3/Black_M"
 @onready var black_m_animation: AnimationPlayer = $"../../../../Car3/Black_M/AnimationPlayer2"
 
@@ -21,11 +23,17 @@ var active_item: Node3D = null
 var item_active: bool = false
 var item_tween: Tween = null
 
+var is_dragging_item: bool = false
+var drag_sensitivity: float = 0.01
+
 var first = true
+var first2 = true
 var keypad_active := false
 var brrsound := true
 var EndOfKeypad := false
 var MannequinAnimation := false
+
+var has_played_door2_music := false 
 
 var doll_shaking := false
 
@@ -41,19 +49,45 @@ var keypad_sounds = [
 	preload("res://Sounds/Wrong.mp3")
 ]
 
+func _input(event: InputEvent) -> void:
+	# If we have released the item, stop processing input here immediately
+	if not item_active or not active_item:
+		return
+
+	if event is InputEventMouseMotion:
+		if "draggable" in active_item and active_item.draggable:
+			if is_dragging_item:
+				var camera = get_viewport().get_camera_3d()
+				var cam_basis = camera.global_transform.basis
+				
+				active_item.global_rotate(cam_basis.y, event.relative.x * drag_sensitivity)
+				active_item.global_rotate(cam_basis.x, event.relative.y * drag_sensitivity)
+		
+		# Block camera movement ONLY if item is active
+		get_viewport().set_input_as_handled()
+
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			is_dragging_item = event.pressed
+
+
 func _physics_process(delta: float) -> void:
 	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
 	
 	if item_active:
 		var can_read = "read_text" in active_item and active_item.read_text != ""
+		var can_drag = "draggable" in active_item and active_item.draggable
 		
 		if is_reading:
 			label.text = "" 
-		elif can_read:
-			label.text = "[E] Put back    [R] Read"
 		else:
-			label.text = "[E] Put back"
+			var txt = "[E] Put back"
+			if can_drag:
+				txt += "   [Hold Click] Rotate"
+			if can_read:
+				txt += "   [R] Read"
+			label.text = txt
 		
 		if can_read and Input.is_key_pressed(KEY_R):
 			if not r_key_was_pressed:
@@ -88,6 +122,14 @@ func _physics_process(delta: float) -> void:
 				if Globals.player_keys.has(interactable.required_key):
 					label.text = "[E] Close Door" if interactable.is_open else "[E] Open Door"
 					if Input.is_action_just_pressed("Interact"):
+						
+						if not has_played_door2_music and not interactable.is_open:
+							if str(interactable.required_key) == "2" and interactable.name == "HingeDoor2":
+								if ambiance_music:
+									await Globals.calltime(1)
+									ambiance_music.play()
+								has_played_door2_music = true
+						
 						interactable.interact()
 				else:
 					label.text = "Locked"
@@ -177,12 +219,18 @@ func _physics_process(delta: float) -> void:
 				
 				if collider.whoami() == "Keypad" and Input.is_action_just_pressed("Interact") and not keypad_active:
 					enter_keypad()
+				
+				if collider.whoami() == "Glass" and Input.is_action_just_pressed("Interact"):
+					$"../../../Glass/PickUp".play()
+					$"../../../../Car3/Glass".queue_free()
+					$"../../../Glass".visible = true;
+					
 					
 				if collider.whoami() == "Chalkboard" and first:
 					var door = $"../../../../Car2/StaticBody3D"
 					if door and door.has_method("_toggle_door"):
 						if door.is_open:
-							door._toggle_door()   # force close if open
+							door._toggle_door()
 						$"../../../../Car2/StaticBody3D/CollisionShape3D".disabled = true
 						
 
@@ -200,6 +248,8 @@ func _physics_process(delta: float) -> void:
 			
 			if collider.whoami() == "Keypad" or collider.whoami() == "Chalkboard":
 				label.text = "[E] To interact"
+			if collider.whoami() == "Glass":
+				label.text = "[E] Pick up glass"
 				
 	else:
 		label.text = ""
@@ -213,12 +263,9 @@ func _toggle_reading_mode():
 	is_reading = !is_reading
 	
 	if is_reading:
-		print("Attempting to read...")
 		if "read_text" in active_item:
-			print("Found variable! The text is: ", active_item.read_text)
 			story_label.text = active_item.read_text
 		else:
-			print("ERROR: This item does not have a 'read_text' variable!")
 			story_label.text = "Error: No text found on object."
 			
 		read_ui_container.visible = true
@@ -258,6 +305,7 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		item_original_transforms[path_str] = { "transform": item.global_transform }
 
 	if not item_active:
+		# --- PICKING UP ---
 		var player = get_tree().get_root().get_node("Node3D/Player")
 		if not player: return
 		var camera = player.get_node_or_null("Neck/Camera")
@@ -281,7 +329,10 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 
 		Globals.playermoveallow = false
 		Crosshair.visible = false
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		
+		# Keep mouse captured so E still works
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		
 		active_item = item
 		item_active = true
 
@@ -289,32 +340,43 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 			neck.wallet_picked_up()
 
 		if item == doll:
-			item_tween.finished.connect(start_doll_shake)
+			if first2:
+				first2 = false
+				item_tween.finished.connect(start_doll_shake)
 
 	elif item_active and active_item == item:
+		# --- PUTTING DOWN ---
 		if is_reading:
 			_toggle_reading_mode()
+		
+		is_dragging_item = false
 
-		var orig_transform: Transform3D = item_original_transforms[path_str]["transform"]
-
-		item_tween = create_tween()
-		item_tween.tween_property(item, "global_transform", orig_transform, 1.0)\
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		# 1. IMMEDIATE RELEASE: Tell system we aren't holding it anymore
+		item_active = false
+		active_item = null # This stops _input from blocking camera
+		
+		# 2. UNLOCK PLAYER MOVEMENT INSTANTLY
 		if neck.standup:
 			Globals.playermoveallow = true
 			Crosshair.visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-		await Globals.calltime(1)
+		# 3. START ANIMATION
+		var orig_transform: Transform3D = item_original_transforms[path_str]["transform"]
+		item_tween = create_tween()
+		item_tween.tween_property(item, "global_transform", orig_transform, 1.0)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+		# 4. WAIT FOR ANIMATION TO FINISH (Background)
+		await item_tween.finished
+		
+		# 5. RESTORE COLLISION
 		var collider_shape = item.find_child("CollisionShape3D", true, false)
 		if collider_shape: collider_shape.disabled = false
 
 		if item.name == "Clipboard" and not monster_active:
 			monster_active = true
 			black_m.visible = true
-
-		active_item = null
-		item_active = false
 
 		if item.name == "Wallet":
 			await neck.wallet_put_down()

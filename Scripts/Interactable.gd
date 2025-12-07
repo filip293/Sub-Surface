@@ -5,6 +5,8 @@ extends StaticBody3D
 @export var group: String = ""
 @export var whoami_value = "Name"
 @export var special: bool = false
+# Check this box in the Inspector if you want to be able to rotate this item
+@export var draggable: bool = false 
 @export var interaction_offset: Vector3 = Vector3(0, 0, 0)
 
 enum ObjectType { GENERIC, KEY, DOOR }
