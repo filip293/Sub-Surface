@@ -43,14 +43,22 @@ var r_key_was_pressed := false
 var monster_active := false
 var monster_seen := false
 
+var label_tween: Tween
+var current_displayed_text: String = ""
+
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
 	preload("res://Sounds/Accept.mp3"),
 	preload("res://Sounds/Wrong.mp3")
 ]
 
+func _ready() -> void:
+	label.text = ""
+	label.modulate.a = 0.0
+	current_displayed_text = ""
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 func _input(event: InputEvent) -> void:
-	# If we have released the item, stop processing input here immediately
 	if not item_active or not active_item:
 		return
 
@@ -59,11 +67,8 @@ func _input(event: InputEvent) -> void:
 			if is_dragging_item:
 				var camera = get_viewport().get_camera_3d()
 				var cam_basis = camera.global_transform.basis
-				
 				active_item.global_rotate(cam_basis.y, event.relative.x * drag_sensitivity)
 				active_item.global_rotate(cam_basis.x, event.relative.y * drag_sensitivity)
-		
-		# Block camera movement ONLY if item is active
 		get_viewport().set_input_as_handled()
 
 	if event is InputEventMouseButton:
@@ -72,6 +77,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var target_text = ""
+
 	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
 	
@@ -80,14 +87,14 @@ func _physics_process(delta: float) -> void:
 		var can_drag = "draggable" in active_item and active_item.draggable
 		
 		if is_reading:
-			label.text = "" 
+			target_text = "" 
 		else:
 			var txt = "[E] Put back"
 			if can_drag:
 				txt += "   [Hold Click] Rotate"
 			if can_read:
 				txt += "   [R] Read"
-			label.text = txt
+			target_text = txt
 		
 		if can_read and Input.is_key_pressed(KEY_R):
 			if not r_key_was_pressed:
@@ -101,7 +108,9 @@ func _physics_process(delta: float) -> void:
 				_toggle_reading_mode()
 			else:
 				handle_item_interaction(active_item, Vector3.ZERO)
-		return
+		
+		_animate_label(target_text)
+		return 
 		
 	if keypad_active:
 		if Input.is_action_just_pressed("Forward") \
@@ -112,147 +121,163 @@ func _physics_process(delta: float) -> void:
 
 	if is_colliding():
 		var collider = get_collider()
-		if not collider:
-			return
-
-		if collider.has_method("interact"):
-			var interactable = collider
-			
-			if interactable.object_type == interactable.ObjectType.DOOR:
-				if Globals.player_keys.has(interactable.required_key):
-					label.text = "[E] Close Door" if interactable.is_open else "[E] Open Door"
-					if Input.is_action_just_pressed("Interact"):
-						
-						if not has_played_door2_music and not interactable.is_open:
-							if str(interactable.required_key) == "2" and interactable.name == "HingeDoor2":
-								if ambiance_music:
-									await Globals.calltime(1)
-									ambiance_music.play()
-								has_played_door2_music = true
-						
-						interactable.interact()
-				else:
-					label.text = "Locked"
-				return
-
-			if interactable.object_type == interactable.ObjectType.KEY and EndOfKeypad:
-				label.text = "[E] Pick up " + interactable.whoami()
-				if Input.is_action_just_pressed("Interact"):
-					interactable.interact()
-				return
-
-		if collider.specialcheck():
-			label.text = "[E] Examine " + collider.whoami()
-			if Input.is_action_just_pressed("Interact") and collider.has_method("get_interaction_node") and collider.has_method("get_offset"):
-				var item_node: Node3D = collider.get_interaction_node()
-				var offset: Vector3 = collider.get_offset()
-				if item_node:
-					handle_item_interaction(item_node, offset)
-				else:
-					push_warning("get_interaction_node() returned null")
-
-		elif collider.has_method("whoami") and not collider.special:
-			if Input.is_action_just_pressed("Interact"):
-				if collider.get_group() == "Keypad":
-					if collider.whoami() == "OK":
-						if SKeyPadText.mesh.text.length() < 4 or int(SKeyPadText.mesh.text) != 814:
-							KeypadAudio.stop()
-							KeypadAudio.stream = keypad_sounds[2]
-							KeypadAudio.play()
-							SKeyPadText.mesh.text = "Denied"
-						else:
-							keypad_active = false
-							KeypadAudio.stop()
-							KeypadAudio.stream = keypad_sounds[1]
-							KeypadAudio.play()
-							SKeyPadText.mesh.text = "Accept"
-							$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/NumOK/CollisionShape3D".disabled = true
-							$"../../../Player".play_backwards("Fov")
-							Globals.mouse_sensitivity *= 4
-							Globals.playermoveallow = true
-							await Globals.calltime(1)
-							$"../../../../Car1/TempWall/CollisionShape3D".disabled = false
-							$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Fall".play("Fall")
-							await Globals.calltime(0.3)
-							$"../../../../Car1/Security Keypad/Key/KayFall".play("KeyFall")
-							await Globals.calltime(2)
-							$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".stop()
-							var lights = [
-							$"../../../../Car1/body003_Body_0/OmniLight3D", $"../../../../Car1/body003_Body_0/OmniLight3D2", 
-							$"../../../../Car1/body003_Body_0/OmniLight3D3", $"../../../../Car1/body003_Body_0/OmniLight3D4",
-							$"../../../../Car1/body003_Body_0/OmniLight3D5", $"../../../../Car1/body003_Body_0/OmniLight3D6",
-							$"../../../../Car1/body003_Body_0/OmniLight3D7", $"../../../../Car1/body003_Body_0/OmniLight3D8",
-							$"../../../../Car1/body003_Body_0/OmniLight3D9"
-							]
-							for light in lights:
-								light.visible = false
-							brrsound = false
-							$"../../../../Car1/mannequin".visible = true
-							MannequinAnimation = true
-							await Globals.calltime(2)
-							for light in lights:
-								light.visible = true
-							brrsound = true
-							$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".play()
-							EndOfKeypad = true
-							$"../../../../Car1/TempWall/CollisionShape3D".disabled = true
-							
-							for button in keypad_path.get_children():
-								var collider2 = button.get_node_or_null("CollisionShape3D")
-								if collider2:
-									collider2.disabled = true
-							
-					elif collider.whoami() == "CLR":
-						KeypadAudio.stop()
-						KeypadAudio.stream = keypad_sounds[0]
-						KeypadAudio.play()
-						SKeyPadText.mesh.text = ""
+		if collider:
+			if collider.has_method("interact"):
+				var interactable = collider
+				
+				if interactable.object_type == interactable.ObjectType.DOOR:
+					if Globals.player_keys.has(interactable.required_key):
+						target_text = "[E] Close Door" if interactable.is_open else "[E] Open Door"
+						if Input.is_action_just_pressed("Interact"):
+							if not has_played_door2_music and not interactable.is_open:
+								if str(interactable.required_key) == "2" and interactable.name == "HingeDoor2":
+									if ambiance_music:
+										await Globals.calltime(1)
+										ambiance_music.play()
+									has_played_door2_music = true
+							interactable.interact()
 					else:
-						KeypadAudio.stop()
-						KeypadAudio.stream = keypad_sounds[0]
-						KeypadAudio.play()
-						if SKeyPadText.mesh.text.length() < 4:
-							SKeyPadText.mesh.text += collider.whoami()
-						else:
-							SKeyPadText.mesh.text = ""
-							SKeyPadText.mesh.text += collider.whoami()
-				
-				if collider.whoami() == "Keypad" and Input.is_action_just_pressed("Interact") and not keypad_active:
-					enter_keypad()
-				
-				if collider.whoami() == "Glass" and Input.is_action_just_pressed("Interact"):
-					$"../../../Glass/PickUp".play()
-					$"../../../../Car3/Glass".queue_free()
-					$"../../../Glass".visible = true;
-					
-					
-				if collider.whoami() == "Chalkboard" and first:
-					var door = $"../../../../Car2/StaticBody3D"
-					if door and door.has_method("_toggle_door"):
-						if door.is_open:
-							door._toggle_door()
-						$"../../../../Car2/StaticBody3D/CollisionShape3D".disabled = true
-						
+						target_text = "Locked"
 
-					$"../../../../Car2/Classroom/ChalkBoard/Chalk".play("LightsAndSound")
-					$"../../../../Car2/Classroom/ChalkBoard/group1802101336/StaticBody3D/CollisionShape3D".disabled = true
-					first = false
-					await Globals.calltime(6)
-					$"../../../../Car2/Desk/RootNode/Desk_Drawer3/Key/CollisionShape3D".disabled = false
-					$"../../../../Car2/Desk/Desk".play("Desk")
-					$"../../../../Car3".visible = true
-					$"../../../../Car1".queue_free()
-					$"../../../../Newspaper".queue_free()
-					$"../../../../Wallet".queue_free()
-					
-			
-			if collider.whoami() == "Keypad" or collider.whoami() == "Chalkboard":
-				label.text = "[E] To interact"
-			if collider.whoami() == "Glass":
-				label.text = "[E] Pick up glass"
+				elif interactable.object_type == interactable.ObjectType.KEY and EndOfKeypad:
+					target_text = "[E] Pick up " + interactable.whoami()
+					if Input.is_action_just_pressed("Interact"):
+						interactable.interact()
 				
+				elif interactable.object_type == interactable.ObjectType.GENERIC and not collider.get_group() == "Keypad":
+					pass
+
+			if collider.specialcheck():
+				target_text = "[E] Examine " + collider.whoami()
+				if Input.is_action_just_pressed("Interact") and collider.has_method("get_interaction_node") and collider.has_method("get_offset"):
+					var item_node: Node3D = collider.get_interaction_node()
+					var offset: Vector3 = collider.get_offset()
+					if item_node:
+						handle_item_interaction(item_node, offset)
+					else:
+						push_warning("get_interaction_node() returned null")
+
+			if collider.has_method("whoami") and not collider.special:
+				if collider.get_group() == "Keypad":
+					target_text = "[E] To interact"
+					if Input.is_action_just_pressed("Interact"):
+						if collider.whoami() == "OK":
+							if SKeyPadText.mesh.text.length() < 4 or int(SKeyPadText.mesh.text) != 814:
+								KeypadAudio.stop()
+								KeypadAudio.stream = keypad_sounds[2]
+								KeypadAudio.play()
+								SKeyPadText.mesh.text = "Denied"
+							else:
+								keypad_active = false
+								KeypadAudio.stop()
+								KeypadAudio.stream = keypad_sounds[1]
+								KeypadAudio.play()
+								SKeyPadText.mesh.text = "Accept"
+								$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/NumOK/CollisionShape3D".disabled = true
+								$"../../../Player".play_backwards("Fov")
+								Globals.mouse_sensitivity *= 4
+								Globals.playermoveallow = true
+								await Globals.calltime(1)
+								$"../../../../Car1/TempWall/CollisionShape3D".disabled = false
+								$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Fall".play("Fall")
+								await Globals.calltime(0.3)
+								$"../../../../Car1/Security Keypad/Key/KayFall".play("KeyFall")
+								await Globals.calltime(2)
+								$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".stop()
+								var lights = [
+								$"../../../../Car1/body003_Body_0/OmniLight3D", $"../../../../Car1/body003_Body_0/OmniLight3D2", 
+								$"../../../../Car1/body003_Body_0/OmniLight3D3", $"../../../../Car1/body003_Body_0/OmniLight3D4",
+								$"../../../../Car1/body003_Body_0/OmniLight3D5", $"../../../../Car1/body003_Body_0/OmniLight3D6",
+								$"../../../../Car1/body003_Body_0/OmniLight3D7", $"../../../../Car1/body003_Body_0/OmniLight3D8",
+								$"../../../../Car1/body003_Body_0/OmniLight3D9"
+								]
+								for light in lights: light.visible = false
+								brrsound = false
+								$"../../../../Car1/mannequin".visible = true
+								MannequinAnimation = true
+								await Globals.calltime(2)
+								for light in lights: light.visible = true
+								brrsound = true
+								$"../../../../Car1/body003_Body_0/StaticBody3D/Bulbs".play()
+								EndOfKeypad = true
+								$"../../../../Car1/TempWall/CollisionShape3D".disabled = true
+								
+								for button in keypad_path.get_children():
+									var collider2 = button.get_node_or_null("CollisionShape3D")
+									if collider2: collider2.disabled = true
+								
+						elif collider.whoami() == "CLR":
+							KeypadAudio.stop()
+							KeypadAudio.stream = keypad_sounds[0]
+							KeypadAudio.play()
+							SKeyPadText.mesh.text = ""
+						else:
+							KeypadAudio.stop()
+							KeypadAudio.stream = keypad_sounds[0]
+							KeypadAudio.play()
+							if SKeyPadText.mesh.text.length() < 4:
+								SKeyPadText.mesh.text += collider.whoami()
+							else:
+								SKeyPadText.mesh.text = ""
+								SKeyPadText.mesh.text += collider.whoami()
+				
+				if collider.whoami() == "Keypad":
+					target_text = "[E] To interact"
+					if Input.is_action_just_pressed("Interact") and not keypad_active:
+						enter_keypad()
+				
+				if collider.whoami() == "Glass":
+					target_text = "[E] Pick up glass"
+					if Input.is_action_just_pressed("Interact"):
+						$"../../../Glass/PickUp".play()
+						$"../../../../Car3/Glass".queue_free()
+						$"../../../Glass".visible = true;
+					
+				if collider.whoami() == "Chalkboard":
+					target_text = "[E] To interact"
+					if first:
+						if Input.is_action_just_pressed("Interact"):
+							var door = $"../../../../Car2/StaticBody3D"
+							if door and door.has_method("_toggle_door"):
+								if door.is_open:
+									door._toggle_door()
+								$"../../../../Car2/StaticBody3D/CollisionShape3D".disabled = true
+							$"../../../../Car2/Classroom/ChalkBoard/Chalk".play("LightsAndSound")
+							$"../../../../Car2/Classroom/ChalkBoard/group1802101336/StaticBody3D/CollisionShape3D".disabled = true
+							first = false
+							await Globals.calltime(6)
+							$"../../../../Car2/Desk/RootNode/Desk_Drawer3/Key/CollisionShape3D".disabled = false
+							$"../../../../Car2/Desk/Desk".play("Desk")
+							$"../../../../Car3".visible = true
+							$"../../../../Car1".queue_free()
+							$"../../../../Newspaper".queue_free()
+							$"../../../../Wallet".queue_free()
+
+	_animate_label(target_text)
+
+
+func _animate_label(new_text: String):
+	if current_displayed_text == new_text:
+		return
+
+	current_displayed_text = new_text
+
+	if label_tween:
+		label_tween.kill()
+	
+	label_tween = create_tween()
+	
+	if new_text == "":
+		label_tween.tween_property(label, "modulate:a", 0.0, 0.2)
+		label_tween.tween_callback(func(): label.text = "")
 	else:
-		label.text = ""
+		if label.modulate.a <= 0.05:
+			label.text = new_text
+			label_tween.tween_property(label, "modulate:a", 1.0, 0.3)
+		else:
+			label_tween.tween_property(label, "modulate:a", 0.0, 0.15)
+			label_tween.tween_callback(func(): label.text = new_text)
+			label_tween.tween_property(label, "modulate:a", 1.0, 0.25)
 
 
 func _toggle_reading_mode():
@@ -305,7 +330,6 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		item_original_transforms[path_str] = { "transform": item.global_transform }
 
 	if not item_active:
-		# --- PICKING UP ---
 		var player = get_tree().get_root().get_node("Node3D/Player")
 		if not player: return
 		var camera = player.get_node_or_null("Neck/Camera")
@@ -329,8 +353,6 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 
 		Globals.playermoveallow = false
 		Crosshair.visible = false
-		
-		# Keep mouse captured so E still works
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		
 		active_item = item
@@ -345,38 +367,34 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 				item_tween.finished.connect(start_doll_shake)
 
 	elif item_active and active_item == item:
-		# --- PUTTING DOWN ---
 		if is_reading:
 			_toggle_reading_mode()
 		
 		is_dragging_item = false
-
-		# 1. IMMEDIATE RELEASE: Tell system we aren't holding it anymore
 		item_active = false
-		active_item = null # This stops _input from blocking camera
+		active_item = null
 		
-		# 2. UNLOCK PLAYER MOVEMENT INSTANTLY
 		if neck.standup:
 			Globals.playermoveallow = true
 			Crosshair.visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-		# 3. START ANIMATION
 		var orig_transform: Transform3D = item_original_transforms[path_str]["transform"]
+
 		item_tween = create_tween()
 		item_tween.tween_property(item, "global_transform", orig_transform, 1.0)\
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-		# 4. WAIT FOR ANIMATION TO FINISH (Background)
-		await item_tween.finished
 		
-		# 5. RESTORE COLLISION
-		var collider_shape = item.find_child("CollisionShape3D", true, false)
-		if collider_shape: collider_shape.disabled = false
-
+		# --- FIX: SPAWN MONSTER IMMEDIATELY (Before animation finishes) ---
 		if item.name == "Clipboard" and not monster_active:
 			monster_active = true
 			black_m.visible = true
+		# ------------------------------------------------------------------
+
+		await item_tween.finished
+		
+		var collider_shape = item.find_child("CollisionShape3D", true, false)
+		if collider_shape: collider_shape.disabled = false
 
 		if item.name == "Wallet":
 			await neck.wallet_put_down()
