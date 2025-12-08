@@ -14,6 +14,24 @@ extends RayCast3D
 @onready var black_m: Node3D = $"../../../../Car3/Black_M"
 @onready var black_m_animation: AnimationPlayer = $"../../../../Car3/Black_M/AnimationPlayer2"
 
+# --- LIQUID SYSTEM VARIABLES (DRAG THESE IN INSPECTOR) ---
+@export_group("Liquid System")
+@export var player_glass: Node3D            # Drag your 'Glass' (in hand) here
+@export var liquid_node: Node3D             # Drag your 'LiquidPivot' (or Liquid mesh) here
+@export var liquid_mesh_visual: MeshInstance3D # Drag the actual Cylinder Mesh here
+@export var pickup_sound: AudioStreamPlayer # Drag your 'PickUp' sound here
+# ---------------------------------------------------------
+
+var current_mix: Array[String] = []
+var consumed_viles: Array[Node3D] = [] 
+var liquid_tween: Tween
+
+var mix_colors_data = {
+	"Red": Color(1.0, 0.0, 0.0),
+	"Yellow": Color(1.0, 1.0, 0.0),
+	"Blue": Color(0.2, 0.8, 1.0) # Light Blue
+}
+
 @export_group("Reading UI System")
 @export var read_ui_container: Control 
 @export var story_label: Label
@@ -57,9 +75,25 @@ func _ready() -> void:
 	label.modulate.a = 0.0
 	current_displayed_text = ""
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	
+	# Initialize Liquid State (Empty)
+	if liquid_node:
+		liquid_node.scale.y = 0
+		liquid_node.visible = false
+	else:
+		printerr("CRITICAL ERROR: 'liquid_node' is not assigned in the Inspector!")
+
+	if liquid_mesh_visual:
+		# Create unique material on the visual mesh
+		if liquid_mesh_visual.get_active_material(0):
+			liquid_mesh_visual.material_override = liquid_mesh_visual.get_active_material(0).duplicate()
 
 func _input(event: InputEvent) -> void:
 	if not item_active or not active_item:
+		# --- DRINKING LOGIC ---
+		if player_glass and player_glass.visible and current_mix.size() >= 3:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+				drink_potion()
 		return
 
 	if event is InputEventMouseMotion:
@@ -119,6 +153,9 @@ func _physics_process(delta: float) -> void:
 		or Input.is_action_just_pressed("Right"):
 			exit_keypad()
 
+	if player_glass and player_glass.visible and current_mix.size() >= 3 and not is_colliding():
+		target_text = "[Left Click] To Drink"
+	
 	if is_colliding():
 		var collider = get_collider()
 		if collider:
@@ -158,6 +195,21 @@ func _physics_process(delta: float) -> void:
 						push_warning("get_interaction_node() returned null")
 
 			if collider.has_method("whoami") and not collider.special:
+				
+				if collider.whoami().begins_with("Vile_"):
+					var color_name = collider.whoami().replace("Vile_", "")
+					
+					if not player_glass.visible:
+						target_text = "I need a cup first."
+					elif current_mix.size() >= 3:
+						target_text = "Cup is full. [Left Click] to Drink."
+					elif current_mix.has(color_name):
+						target_text = "I already added " + color_name
+					else:
+						target_text = "[E] Add " + color_name + " Liquid"
+						if Input.is_action_just_pressed("Interact"):
+							add_liquid_from_vile(color_name, collider)
+
 				if collider.get_group() == "Keypad":
 					target_text = "[E] To interact"
 					if Input.is_action_just_pressed("Interact"):
@@ -229,9 +281,19 @@ func _physics_process(delta: float) -> void:
 				if collider.whoami() == "Glass":
 					target_text = "[E] Pick up glass"
 					if Input.is_action_just_pressed("Interact"):
-						$"../../../Glass/PickUp".play()
+						if pickup_sound:
+							pickup_sound.play()
 						$"../../../../Car3/Glass".queue_free()
-						$"../../../Glass".visible = true;
+						
+						if player_glass:
+							player_glass.visible = true
+						
+						# Ensure glass starts empty
+						if liquid_node:
+							liquid_node.scale.y = 0
+							liquid_node.visible = false
+						current_mix.clear()
+						consumed_viles.clear()
 					
 				if collider.whoami() == "Chalkboard":
 					target_text = "[E] To interact"
@@ -255,6 +317,86 @@ func _physics_process(delta: float) -> void:
 
 	_animate_label(target_text)
 
+# --- LIQUID LOGIC FUNCTIONS ---
+
+func add_liquid_from_vile(color_str: String, vile_object: Node3D):
+	if current_mix.has(color_str): return
+	
+	# Play Sound
+	if pickup_sound:
+		pickup_sound.play()
+	
+	current_mix.append(color_str)
+	if liquid_node:
+		liquid_node.visible = true
+	
+	# Hide the vile
+	vile_object.visible = false
+	if vile_object.get_node_or_null("CollisionShape3D"):
+		vile_object.get_node("CollisionShape3D").disabled = true
+	elif vile_object is CollisionObject3D:
+		vile_object.collision_layer = 0
+		
+	consumed_viles.append(vile_object)
+	
+	# Update Color
+	var r = 0.0
+	var g = 0.0
+	var b = 0.0
+	
+	for c in current_mix:
+		if c in mix_colors_data:
+			var col = mix_colors_data[c]
+			r += col.r
+			g += col.g
+			b += col.b
+	
+	var count = float(current_mix.size())
+	var final_color = Color(r/count, g/count, b/count, 1.0)
+	
+	# Tween Visuals
+	if liquid_tween: liquid_tween.kill()
+	liquid_tween = create_tween().set_parallel(true)
+	
+	var target_scale = count / 3.0
+	if liquid_node:
+		liquid_tween.tween_property(liquid_node, "scale:y", target_scale, 0.5)\
+			.set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	
+	if liquid_mesh_visual:
+		liquid_tween.tween_property(liquid_mesh_visual.material_override, "albedo_color", final_color, 0.5)
+
+func drink_potion():
+	if current_mix == ["Red", "Yellow", "Blue"]:
+		# SUCCESS
+		label.text = "It tastes perfect."
+		if player_glass:
+			player_glass.visible = false 
+	else:
+		# FAIL
+		trigger_blurry_vision()
+
+func trigger_blurry_vision():
+	# Reset logic
+	current_mix.clear()
+	if liquid_node:
+		liquid_node.scale.y = 0
+		liquid_node.visible = false
+	
+	# Respawn the viles
+	for v in consumed_viles:
+		if is_instance_valid(v):
+			v.visible = true
+			if v.get_node_or_null("CollisionShape3D"):
+				v.get_node("CollisionShape3D").disabled = false
+			elif v is CollisionObject3D:
+				v.collision_layer = 1 
+	consumed_viles.clear()
+	
+	# --- DIZZY EFFECT ---
+	pass 
+
+# ------------------------------
 
 func _animate_label(new_text: String):
 	if current_displayed_text == new_text:
@@ -385,11 +527,9 @@ func handle_item_interaction(item: Node3D, offset: Vector3) -> void:
 		item_tween.tween_property(item, "global_transform", orig_transform, 1.0)\
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		
-		# --- FIX: SPAWN MONSTER IMMEDIATELY (Before animation finishes) ---
 		if item.name == "Clipboard" and not monster_active:
 			monster_active = true
 			black_m.visible = true
-		# ------------------------------------------------------------------
 
 		await item_tween.finished
 		
