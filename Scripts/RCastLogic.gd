@@ -206,12 +206,14 @@ func _physics_process(delta: float) -> void:
 				if collider.whoami().begins_with("Vile_"):
 					var color_name = collider.whoami().replace("Vile_", "")
 					
-					if not player_glass.visible:
+					if not player_glass.visible and not Globals.player_keys.has("3"):
 						target_text = "I need a cup first."
 					elif current_mix.size() >= 3:
 						target_text = "Cup is full. [Left Click] to Drink."
 					elif current_mix.has(color_name):
 						target_text = "I already added " + color_name
+					elif Globals.player_keys.has("3"):
+						target_text = "I'm not drinking that again."
 					else:
 						target_text = "[E] Add " + color_name + " Liquid"
 						if Input.is_action_just_pressed("Interact"):
@@ -378,6 +380,7 @@ func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 func drink_potion():
 	$"../../../Glass/Drink".play()
 	if current_mix == ["Red", "Yellow", "Blue"]:
+		$"../../../../Car4".visible = true
 		var door = $"../../../../Car3/HingeDoor2"
 		if door and door.has_method("_toggle_door"):
 			if door.is_open:

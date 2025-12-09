@@ -19,7 +19,8 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	$"../Car1/body003_Body_0/StaticBody3D/Bulbs".play("OnOff")
 	await Globals.calltime(3)
-	
+	$"../Car4".visible = false
+	$"../Car5".visible = false
 	DialogueManager.show_dialogue_balloon(load("res://Dialogue/Dialogue.dialogue"), "Subway")
 	await DialogueManager.dialogue_ended
 	
