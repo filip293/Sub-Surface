@@ -66,6 +66,9 @@ var monster_seen := false
 var label_tween: Tween
 var current_displayed_text: String = ""
 
+# --- NEW VARIABLE TO FIX TEXT VISIBILITY ---
+var notification_active: bool = false
+
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
 	preload("res://Sounds/Accept.mp3"),
@@ -145,7 +148,9 @@ func _physics_process(delta: float) -> void:
 			else:
 				handle_item_interaction(active_item, Vector3.ZERO)
 		
-		_animate_label(target_text)
+		# Important: Don't overwrite notification text
+		if not notification_active:
+			_animate_label(target_text)
 		return 
 		
 	if keypad_active:
@@ -316,8 +321,10 @@ func _physics_process(delta: float) -> void:
 							$"../../../../Car1".queue_free()
 							$"../../../../Newspaper".queue_free()
 							$"../../../../Wallet".queue_free()
-
-	_animate_label(target_text)
+	
+	# --- FIX: Only update normal text if we aren't showing a priority notification ---
+	if not notification_active:
+		_animate_label(target_text)
 
 # --- LIQUID LOGIC FUNCTIONS ---
 
@@ -369,18 +376,32 @@ func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 		liquid_tween.tween_property(liquid_mesh_visual.material_override, "albedo_color", final_color, 0.5)
 
 func drink_potion():
-	# Check order: Red -> Yellow -> Blue
+	$"../../../Glass/Drink".play()
 	if current_mix == ["Red", "Yellow", "Blue"]:
-		# --- SUCCESS ---
+		var door = $"../../../../Car3/HingeDoor2"
+		if door and door.has_method("_toggle_door"):
+			if door.is_open:
+				door._toggle_door()
+				await Globals.calltime(1)
+				$"../../../../Car2".queue_free()
 		
-		# FIX: Use String "3" instead of Integer 3 because the array is typed as String
+		# FIX 1: Use String "3"
 		if not Globals.player_keys.has("3"):
 			Globals.player_keys.append("3")
 			
+		# FIX 2: Lock the label so PhysicsProcess doesn't clear it
+		notification_active = true
+		
+		await Globals.calltime(0.5)
 		_animate_label("Key 3 found")
 		
 		if player_glass:
 			player_glass.visible = false 
+		
+		# Wait 3 seconds then unlock the label
+		await Globals.calltime(3.0)
+		notification_active = false
+		
 	else:
 		# --- FAIL ---
 		trigger_blurry_vision()
@@ -424,6 +445,7 @@ func trigger_blurry_vision():
 	dizzy_tween.tween_property(post_process, "VignetteIntensity", 5.0, 2.0)\
 		.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
+	$"../../../Dizzy".play()
 	# --- PHASE 2: WAIT (Stay Dizzy) ---
 	dizzy_tween.chain().tween_interval(3.0) # Wait 3 seconds before recovering
 	
