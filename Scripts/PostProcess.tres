@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="PostProcessingConfiguration" load_steps=2 format=3 uid="uid://do6s14gs8hfk7"]
+
+[ext_resource type="Script" uid="uid://7nb4nv15cspj" path="res://addons/post_processing/resource/post_processing_configuration.gd" id="1_kede2"]
+
+[resource]
+script = ExtResource("1_kede2")
+ChromaticAberration = true
+Vignette = true
+VignetteOpacity = 0.2
+Grain = true
+GrainPower = 50
+PixelatePixelSize = 3
+metadata/_custom_type_script = "uid://7nb4nv15cspj"

@@ -74,3 +74,7 @@ Interact={
 [internationalization]
 
 locale/translations_pot_files=PackedStringArray("res://Dialogue/Dialogue.dialogue")
+
+[rendering]
+
+scaling_3d/scale=0.6

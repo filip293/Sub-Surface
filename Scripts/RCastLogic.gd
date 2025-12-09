@@ -14,6 +14,8 @@ extends RayCast3D
 @onready var black_m: Node3D = $"../../../../Car3/Black_M"
 @onready var black_m_animation: AnimationPlayer = $"../../../../Car3/Black_M/AnimationPlayer2"
 
+var post_process = load("res://Scripts/PostProcess.tres")
+
 # --- LIQUID SYSTEM VARIABLES (DRAG THESE IN INSPECTOR) ---
 @export_group("Liquid System")
 @export var player_glass: Node3D            # Drag your 'Glass' (in hand) here
@@ -169,7 +171,7 @@ func _physics_process(delta: float) -> void:
 							if not has_played_door2_music and not interactable.is_open:
 								if str(interactable.required_key) == "2" and interactable.name == "HingeDoor2":
 									if ambiance_music:
-										await Globals.calltime(1)
+										#await Globals.calltime(1)
 										ambiance_music.play()
 									has_played_door2_music = true
 							interactable.interact()
@@ -367,17 +369,24 @@ func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 		liquid_tween.tween_property(liquid_mesh_visual.material_override, "albedo_color", final_color, 0.5)
 
 func drink_potion():
+	# Check order: Red -> Yellow -> Blue
 	if current_mix == ["Red", "Yellow", "Blue"]:
-		# SUCCESS
-		label.text = "It tastes perfect."
+		# --- SUCCESS ---
+		
+		# FIX: Use String "3" instead of Integer 3 because the array is typed as String
+		if not Globals.player_keys.has("3"):
+			Globals.player_keys.append("3")
+			
+		_animate_label("Key 3 found")
+		
 		if player_glass:
 			player_glass.visible = false 
 	else:
-		# FAIL
+		# --- FAIL ---
 		trigger_blurry_vision()
 
 func trigger_blurry_vision():
-	# Reset logic
+	# 1. Reset potion logic
 	current_mix.clear()
 	if liquid_node:
 		liquid_node.scale.y = 0
@@ -393,8 +402,45 @@ func trigger_blurry_vision():
 				v.collision_layer = 1 
 	consumed_viles.clear()
 	
-	# --- DIZZY EFFECT ---
-	pass 
+	# 2. ANIMATED DIZZY EFFECT (Realistic & Fading)
+	
+	post_process.Blur = true
+	
+	# Create a tween that sequences the effects
+	var dizzy_tween = create_tween()
+	
+	# --- PHASE 1: GET DIZZY (Ramp Up) ---
+	dizzy_tween.set_parallel(true) # Run these next animations together
+	
+	# Grain: 0 -> 3.0 (Subtle visual noise, not broken static)
+	dizzy_tween.tween_property(post_process, "GrainPower", 3.0, 2.0)\
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	
+	# Opacity: 0 -> 0.5 (Darkens edges, doesn't pitch black the screen)
+	dizzy_tween.tween_property(post_process, "VignetteOpacity", 0.5, 2.0)\
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		
+	# Intensity: 0 -> 5.0 (Tunnels vision slightly)
+	dizzy_tween.tween_property(post_process, "VignetteIntensity", 5.0, 2.0)\
+		.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+
+	# --- PHASE 2: WAIT (Stay Dizzy) ---
+	dizzy_tween.chain().tween_interval(3.0) # Wait 3 seconds before recovering
+	
+	# --- PHASE 3: RECOVER (Fade Out) ---
+	dizzy_tween.chain().set_parallel(true) # Run recovery animations together
+	
+	dizzy_tween.tween_property(post_process, "GrainPower", 0.0, 2.0)\
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		
+	dizzy_tween.tween_property(post_process, "VignetteOpacity", 0.0, 2.0)\
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		
+	dizzy_tween.tween_property(post_process, "VignetteIntensity", 0.0, 2.0)\
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+	# Turn off blur at the very end
+	dizzy_tween.chain().tween_callback(func(): post_process.Blur = false)
 
 # ------------------------------
 
