@@ -380,33 +380,58 @@ func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 func drink_potion():
 	$"../../../Glass/Drink".play()
 	if current_mix == ["Red", "Yellow", "Blue"]:
+
 		$"../../../../Car4".visible = true
 		var door = $"../../../../Car3/HingeDoor2"
-		if door and door.has_method("_toggle_door"):
-			if door.is_open:
-				door._toggle_door()
-				await Globals.calltime(1)
-				$"../../../../Car2".queue_free()
-		
-		# FIX 1: Use String "3"
+		if door and door.has_method("_toggle_door") and door.is_open:
+			door._toggle_door()
+
 		if not Globals.player_keys.has("3"):
 			Globals.player_keys.append("3")
-			
-		# FIX 2: Lock the label so PhysicsProcess doesn't clear it
-		notification_active = true
-		
-		await Globals.calltime(0.5)
-		_animate_label("Key 3 found")
-		
+
 		if player_glass:
 			player_glass.visible = false 
-		
-		# Wait 3 seconds then unlock the label
-		await Globals.calltime(3.0)
+
+		Globals.playermoveallow = false
+		Globals.playerlookallow = false
+		notification_active = true
+
+		var act1_tween = create_tween().bind_node(self)
+		act1_tween.set_parallel() 
+
+		act1_tween.tween_interval(2.0)
+
+		act1_tween.tween_property(post_process, "VignetteIntensity", 5.0, 20.0)\
+			.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+		act1_tween.tween_interval(1.0)
+		act1_tween.tween_callback($"../../../CarCrash".play)
+
+		await act1_tween.finished
+
+		var act2_tween = create_tween().bind_node(self).set_parallel(false) 
+
+		act2_tween.tween_interval(3.0) 
+
+		act2_tween.tween_property(post_process, "VignetteIntensity", 0.0, 20.0)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+		act2_tween.tween_interval(0.5) 
+
+		act2_tween.tween_callback($"../../../Dizzy".play)
+		act2_tween.tween_interval(0.5) 
+
+		act2_tween.tween_callback(func(): _animate_label("Key 3 found"))
+
+		await act2_tween.finished
+
+		Globals.playermoveallow = true
+		Globals.playerlookallow = true
+
+		await get_tree().create_timer(3.0).timeout
 		notification_active = false
-		
+
 	else:
-		# --- FAIL ---
+
 		trigger_blurry_vision()
 
 func trigger_blurry_vision():
