@@ -66,7 +66,6 @@ var monster_seen := false
 var label_tween: Tween
 var current_displayed_text: String = ""
 
-# --- NEW VARIABLE TO FIX TEXT VISIBILITY ---
 var notification_active: bool = false
 
 var keypad_sounds = [
@@ -130,7 +129,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			var txt = "[E] Put back"
 			if can_drag:
-				txt += "   [Hold Click] Rotate"
+				txt += "   [Hold LMB] Rotate"
 			if can_read:
 				txt += "   [R] Read"
 			target_text = txt
@@ -176,9 +175,17 @@ func _physics_process(delta: float) -> void:
 							if not has_played_door2_music and not interactable.is_open:
 								if str(interactable.required_key) == "2" and interactable.name == "HingeDoor2":
 									if ambiance_music:
-										#await Globals.calltime(1)
 										ambiance_music.play()
 									has_played_door2_music = true
+							if not interactable.is_open:
+								if str(interactable.required_key) == "3" and interactable.name == "HingeDoor4":
+									$"../../../../Car4/body003_Body_0/Marker3D/PoliceLight".play("Spin")
+									$"../../../../Car4/body003_Body_0/Marker3D/Police".play()
+									if ambiance_music:
+										$"../../../../Car4/body003_Body_0/Marker3D/Fade".play("FadeMusic")
+										await Globals.calltime(1)
+										ambiance_music.stop()
+										ambiance_music.queue_free()
 							interactable.interact()
 					else:
 						target_text = "Locked"
@@ -212,12 +219,12 @@ func _physics_process(delta: float) -> void:
 						target_text = "Cup is full. [Left Click] to Drink."
 					elif current_mix.has(color_name):
 						target_text = "I already added " + color_name
-					elif Globals.player_keys.has("3"):
-						target_text = "I'm not drinking that again."
 					else:
 						target_text = "[E] Add " + color_name + " Liquid"
 						if Input.is_action_just_pressed("Interact"):
 							add_liquid_from_vile(color_name, collider)
+					if Globals.player_keys.has("3"):
+						target_text = "I'm not drinking that again."
 
 				if collider.get_group() == "Keypad":
 					target_text = "[E] To interact"
@@ -378,9 +385,10 @@ func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 		liquid_tween.tween_property(liquid_mesh_visual.material_override, "albedo_color", final_color, 0.5)
 
 func drink_potion():
+	_animate_label("")
 	$"../../../Glass/Drink".play()
-	if current_mix == ["Red", "Yellow", "Blue"]:
 
+	if current_mix == ["Red", "Yellow", "Blue"]:
 		$"../../../../Car4".visible = true
 		var door = $"../../../../Car3/HingeDoor2"
 		if door and door.has_method("_toggle_door") and door.is_open:
@@ -396,42 +404,41 @@ func drink_potion():
 		Globals.playerlookallow = false
 		notification_active = true
 
-		var act1_tween = create_tween().bind_node(self)
-		act1_tween.set_parallel() 
+		var memory_tween = create_tween().bind_node(self)
 
-		act1_tween.tween_interval(2.0)
+		memory_tween.set_parallel()
+		memory_tween.tween_property(post_process, "VignetteIntensity", 15.0, 0.3).set_trans(Tween.TRANS_EXPO)
+		memory_tween.tween_property(post_process, "VignetteOpacity", 1.0, 0.3)
+		memory_tween.tween_property(post_process, "Blur", true, 0.1)
+		memory_tween.tween_property(post_process, "StrenghtCA", 1.0, 0.3)
 
-		act1_tween.tween_property(post_process, "VignetteIntensity", 5.0, 20.0)\
-			.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-		act1_tween.tween_interval(1.0)
-		act1_tween.tween_callback($"../../../CarCrash".play)
+		memory_tween.chain().tween_interval(1.0)
 
-		await act1_tween.finished
+		memory_tween.chain().tween_callback(func():
+			$"../../../CarCrash".play()
+		)
+		
+		memory_tween.chain().tween_interval(2.0)
+		
+		memory_tween.chain().tween_callback($"../../../Dizzy".play).set_delay(0.5)
 
-		var act2_tween = create_tween().bind_node(self).set_parallel(false) 
+		memory_tween.chain().set_parallel()
+		memory_tween.tween_property(post_process, "VignetteIntensity", 0.0, 4.0).set_trans(Tween.TRANS_SINE)
+		memory_tween.tween_property(post_process, "VignetteOpacity", 0.0, 4.0)
+		memory_tween.tween_property(post_process, "StrenghtCA", 0.0, 3.5)
+		
+		memory_tween.chain().tween_callback(func(): post_process.Blur = false)
+		memory_tween.chain().tween_callback(func(): _animate_label("Key 3 found"))
 
-		act2_tween.tween_interval(3.0) 
-
-		act2_tween.tween_property(post_process, "VignetteIntensity", 0.0, 20.0)\
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-
-		act2_tween.tween_interval(0.5) 
-
-		act2_tween.tween_callback($"../../../Dizzy".play)
-		act2_tween.tween_interval(0.5) 
-
-		act2_tween.tween_callback(func(): _animate_label("Key 3 found"))
-
-		await act2_tween.finished
-
+		await memory_tween.finished
+		
 		Globals.playermoveallow = true
 		Globals.playerlookallow = true
 
 		await get_tree().create_timer(3.0).timeout
-		notification_active = false
+		notification_active = false 
 
 	else:
-
 		trigger_blurry_vision()
 
 func trigger_blurry_vision():

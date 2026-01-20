@@ -6,7 +6,6 @@
 script = ExtResource("1_kede2")
 ChromaticAberration = true
 Vignette = true
-VignetteIntensity = 5.0
 VignetteOpacity = 0.2
 Grain = true
 GrainPower = 50
