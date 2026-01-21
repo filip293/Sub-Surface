@@ -24,6 +24,18 @@ var post_process = load("res://Scripts/PostProcess.tres")
 @export var pickup_sound: AudioStreamPlayer # Drag your 'PickUp' sound here
 # ---------------------------------------------------------
 
+@export_group("Simple Debris Storm")
+# Drag your 'DebrisStormPoint' Marker3D here
+@export var storm_marker: Marker3D 
+@export var storm_amount: int = 100         # How many pieces of debris to spawn
+@export var storm_radius: float = 12.0      # How far the debris will fly from the center
+@export var storm_speed: float = 10.0       # How fast the debris moves
+@export var storm_duration: float = 6.0     # How long the storm lasts in seconds
+
+var is_storm_active: bool = false
+var debris_pool: Array[Node3D] = []
+var storm_timer: Timer
+
 var current_mix: Array[String] = []
 var consumed_viles: Array[Node3D] = [] 
 var liquid_tween: Tween
@@ -91,6 +103,16 @@ func _ready() -> void:
 		# Create unique material on the visual mesh
 		if liquid_mesh_visual.get_active_material(0):
 			liquid_mesh_visual.material_override = liquid_mesh_visual.get_active_material(0).duplicate()
+			
+	if is_instance_valid(storm_marker):
+		_create_debris_pool()
+		storm_timer = Timer.new()
+		storm_timer.wait_time = storm_duration
+		storm_timer.one_shot = true
+		storm_timer.timeout.connect(stop_debris_storm)
+		add_child(storm_timer)
+	else:
+		push_warning("Simple Debris Storm: 'storm_marker' is not assigned in the Inspector!")
 
 func _input(event: InputEvent) -> void:
 	if not item_active or not active_item:
@@ -116,6 +138,20 @@ func _input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	var target_text = ""
+	
+	if Input.is_action_just_pressed("ui_up"): # Using UP ARROW key for testing
+		if is_storm_active:
+			stop_debris_storm()
+		else:
+			start_debris_storm()
+			
+	if is_storm_active:
+		for debris in debris_pool:
+			var velocity = debris.get_meta("velocity", Vector3.ZERO)
+			debris.position += velocity * delta
+			# If a piece flies too far, reset it to the center to keep the storm contained
+			if debris.position.length() > storm_radius:
+				debris.position = Vector3.ZERO
 
 	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
@@ -336,6 +372,52 @@ func _physics_process(delta: float) -> void:
 		_animate_label(target_text)
 
 # --- LIQUID LOGIC FUNCTIONS ---
+
+func _create_debris_pool():
+	var templates = storm_marker.get_children()
+	if templates.is_empty(): return
+
+	for i in range(storm_amount):
+		var template = templates.pick_random()
+		var debris_instance = template.duplicate()
+		debris_instance.visible = false # Keep it hidden until the storm starts
+		debris_pool.append(debris_instance)
+		storm_marker.add_child(debris_instance) # It becomes a child of the marker
+	
+	# Hide the original 7 templates
+	for t in templates:
+		t.visible = false
+
+# Call this to start the storm.
+func start_debris_storm():
+	if is_storm_active or debris_pool.is_empty(): return
+	
+	print("Simple storm started!")
+	is_storm_active = true
+	storm_timer.start()
+
+	for debris in debris_pool:
+		debris.visible = true
+		# Give it a random starting position inside the storm
+		debris.position = Vector3(
+			randf_range(-storm_radius, storm_radius),
+			randf_range(-storm_radius, storm_radius),
+			randf_range(-storm_radius, storm_radius)
+		).normalized() * randf_range(0, storm_radius * 0.5)
+		
+		# Give it a random direction to fly in
+		var random_velocity = Vector3.FORWARD.rotated(Vector3.UP, randf_range(0, TAU))
+		random_velocity = random_velocity.rotated(Vector3.RIGHT, randf_range(0, TAU))
+		debris.set_meta("velocity", random_velocity.normalized() * storm_speed)
+
+# This is called automatically by the timer to stop the storm.
+func stop_debris_storm():
+	if not is_storm_active: return
+	
+	print("Simple storm stopped!")
+	is_storm_active = false
+	for debris in debris_pool:
+		debris.visible = false
 
 func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 	if current_mix.has(color_str): return
