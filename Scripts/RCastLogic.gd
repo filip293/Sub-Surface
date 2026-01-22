@@ -2,6 +2,7 @@ extends RayCast3D
 
 @onready var label = $"../../../../POV/CanvasLayer/Label"
 @onready var neck := $"../.."
+@onready var camera := $".."
 @onready var Crosshair = $"../../../../POV/CanvasLayer/Crosshair"
 @onready var SKeyPadText = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/TextKeypad"
 @onready var KeypadAudio = $"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/Sound"
@@ -14,6 +15,8 @@ extends RayCast3D
 @onready var black_m: Node3D = $"../../../../Car3/Black_M"
 @onready var black_m_animation: AnimationPlayer = $"../../../../Car3/Black_M/AnimationPlayer2"
 
+@onready var debris := $"../../../../Car4/Debris"
+
 var post_process = load("res://Scripts/PostProcess.tres")
 
 # --- LIQUID SYSTEM VARIABLES (DRAG THESE IN INSPECTOR) ---
@@ -23,18 +26,6 @@ var post_process = load("res://Scripts/PostProcess.tres")
 @export var liquid_mesh_visual: MeshInstance3D # Drag the actual Cylinder Mesh here
 @export var pickup_sound: AudioStreamPlayer # Drag your 'PickUp' sound here
 # ---------------------------------------------------------
-
-@export_group("Simple Debris Storm")
-# Drag your 'DebrisStormPoint' Marker3D here
-@export var storm_marker: Marker3D 
-@export var storm_amount: int = 100         # How many pieces of debris to spawn
-@export var storm_radius: float = 12.0      # How far the debris will fly from the center
-@export var storm_speed: float = 10.0       # How fast the debris moves
-@export var storm_duration: float = 6.0     # How long the storm lasts in seconds
-
-var is_storm_active: bool = false
-var debris_pool: Array[Node3D] = []
-var storm_timer: Timer
 
 var current_mix: Array[String] = []
 var consumed_viles: Array[Node3D] = [] 
@@ -80,6 +71,12 @@ var current_displayed_text: String = ""
 
 var notification_active: bool = false
 
+var camera_original_pos: Vector3
+
+var in_layer_1 = false
+var in_layer_2 = false
+var in_layer_3 = false
+
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
 	preload("res://Sounds/Accept.mp3"),
@@ -91,8 +88,6 @@ func _ready() -> void:
 	label.modulate.a = 0.0
 	current_displayed_text = ""
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	
-	# Initialize Liquid State (Empty)
 	if liquid_node:
 		liquid_node.scale.y = 0
 		liquid_node.visible = false
@@ -100,23 +95,11 @@ func _ready() -> void:
 		printerr("CRITICAL ERROR: 'liquid_node' is not assigned in the Inspector!")
 
 	if liquid_mesh_visual:
-		# Create unique material on the visual mesh
 		if liquid_mesh_visual.get_active_material(0):
 			liquid_mesh_visual.material_override = liquid_mesh_visual.get_active_material(0).duplicate()
-			
-	if is_instance_valid(storm_marker):
-		_create_debris_pool()
-		storm_timer = Timer.new()
-		storm_timer.wait_time = storm_duration
-		storm_timer.one_shot = true
-		storm_timer.timeout.connect(stop_debris_storm)
-		add_child(storm_timer)
-	else:
-		push_warning("Simple Debris Storm: 'storm_marker' is not assigned in the Inspector!")
 
 func _input(event: InputEvent) -> void:
 	if not item_active or not active_item:
-		# --- DRINKING LOGIC ---
 		if player_glass and player_glass.visible and current_mix.size() >= 3:
 			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 				drink_potion()
@@ -139,19 +122,7 @@ func _input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	var target_text = ""
 	
-	if Input.is_action_just_pressed("ui_up"): # Using UP ARROW key for testing
-		if is_storm_active:
-			stop_debris_storm()
-		else:
-			start_debris_storm()
-			
-	if is_storm_active:
-		for debris in debris_pool:
-			var velocity = debris.get_meta("velocity", Vector3.ZERO)
-			debris.position += velocity * delta
-			# If a piece flies too far, reset it to the center to keep the storm contained
-			if debris.position.length() > storm_radius:
-				debris.position = Vector3.ZERO
+	if Input.is_action_just_pressed("ui_accept"): raise_and_drop()
 
 	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
@@ -182,8 +153,7 @@ func _physics_process(delta: float) -> void:
 				_toggle_reading_mode()
 			else:
 				handle_item_interaction(active_item, Vector3.ZERO)
-		
-		# Important: Don't overwrite notification text
+
 		if not notification_active:
 			_animate_label(target_text)
 		return 
@@ -222,6 +192,9 @@ func _physics_process(delta: float) -> void:
 										await Globals.calltime(1)
 										ambiance_music.stop()
 										ambiance_music.queue_free()
+										$"../../../../AmbianceMUSIC2".play()
+									playcar4sounds()
+									
 							interactable.interact()
 					else:
 						target_text = "Locked"
@@ -279,7 +252,7 @@ func _physics_process(delta: float) -> void:
 								SKeyPadText.mesh.text = "Accept"
 								$"../../../../Car1/Security Keypad/Security Keypad Pivot/Security Keypad/NumOK/CollisionShape3D".disabled = true
 								$"../../../Player".play_backwards("Fov")
-								Globals.mouse_sensitivity *= 4
+								Globals.mouse_sensitivity = Globals.mouse_sensitivity / 4
 								Globals.playermoveallow = true
 								await Globals.calltime(1)
 								$"../../../../Car1/TempWall/CollisionShape3D".disabled = false
@@ -372,52 +345,6 @@ func _physics_process(delta: float) -> void:
 		_animate_label(target_text)
 
 # --- LIQUID LOGIC FUNCTIONS ---
-
-func _create_debris_pool():
-	var templates = storm_marker.get_children()
-	if templates.is_empty(): return
-
-	for i in range(storm_amount):
-		var template = templates.pick_random()
-		var debris_instance = template.duplicate()
-		debris_instance.visible = false # Keep it hidden until the storm starts
-		debris_pool.append(debris_instance)
-		storm_marker.add_child(debris_instance) # It becomes a child of the marker
-	
-	# Hide the original 7 templates
-	for t in templates:
-		t.visible = false
-
-# Call this to start the storm.
-func start_debris_storm():
-	if is_storm_active or debris_pool.is_empty(): return
-	
-	print("Simple storm started!")
-	is_storm_active = true
-	storm_timer.start()
-
-	for debris in debris_pool:
-		debris.visible = true
-		# Give it a random starting position inside the storm
-		debris.position = Vector3(
-			randf_range(-storm_radius, storm_radius),
-			randf_range(-storm_radius, storm_radius),
-			randf_range(-storm_radius, storm_radius)
-		).normalized() * randf_range(0, storm_radius * 0.5)
-		
-		# Give it a random direction to fly in
-		var random_velocity = Vector3.FORWARD.rotated(Vector3.UP, randf_range(0, TAU))
-		random_velocity = random_velocity.rotated(Vector3.RIGHT, randf_range(0, TAU))
-		debris.set_meta("velocity", random_velocity.normalized() * storm_speed)
-
-# This is called automatically by the timer to stop the storm.
-func stop_debris_storm():
-	if not is_storm_active: return
-	
-	print("Simple storm stopped!")
-	is_storm_active = false
-	for debris in debris_pool:
-		debris.visible = false
 
 func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 	if current_mix.has(color_str): return
@@ -780,3 +707,86 @@ func _on_visible_on_screen_notifier_3d_screen_entered() -> void:
 		$"../../../../Car3/Black_M/Jumpscare".play()
 		await Globals.calltime(1)
 		black_m_animation.play("GoToSeat")
+		
+		
+		
+func playcar4sounds():
+	await Globals.calltime(5)
+	$"../../../../Car4/PuzzleElements/TireSq".play()
+	await Globals.calltime(20)
+	$"../../../../Car4/PuzzleElements/CarCrashMetal".play()
+	await Globals.calltime(20)
+	$"../../../../Car4/PuzzleElements/Voice".play()
+
+func raise_and_drop():
+	var start_pos: Vector3 = debris.global_position
+	var up_pos: Vector3 = start_pos + Vector3(0, 2, 0)
+	
+	$"../../../../Car4/PuzzleElements/CryWoman".play()
+	
+	await Globals.calltime(1)
+	$"../../../../Car4/PuzzleElements/OmniLight3D".visible = true
+	
+	var rise := create_tween()
+	rise.tween_property(debris, "global_position", up_pos, 3.4)
+	$"../../../../Car4/PuzzleElements/Tension2".play()
+
+	rise.finished.connect(func ():
+		var fall := create_tween()
+
+		fall.tween_interval(0.35)
+
+		fall.tween_property(debris, "global_position", start_pos, 0.5)
+
+		fall.finished.connect(func ():
+			camera_shake(0.2, 0.25)
+			$"../../../../Car4/PuzzleElements/Fall".play()
+			$"../../../../Car4/PuzzleElements/OmniLight3D".visible = false
+		)
+	)
+	
+
+	
+func camera_shake(intensity: float = 0.15, duration: float = 0.2):
+	camera_original_pos = camera.position
+
+	var shake_tween := create_tween()
+	shake_tween.set_trans(Tween.TRANS_SINE)
+	shake_tween.set_ease(Tween.EASE_IN_OUT)
+
+	for i in range(6):
+		var offset := Vector3(
+			randf_range(-intensity, intensity),
+			randf_range(-intensity, intensity),
+			0
+		)
+		shake_tween.tween_property(
+			camera,
+			"position",
+			camera_original_pos + offset,
+			duration / 6.0
+		)
+
+	shake_tween.tween_property(camera, "position", camera_original_pos, 0.05)
+
+
+func _on_safe_zone_1_body_entered(body: Node3D) -> void:
+	in_layer_1 = true
+
+
+func _on_safe_zone_1_body_exited(body: Node3D) -> void:
+	in_layer_1 = false
+
+func _on_safe_zone_2_body_entered(body: Node3D) -> void:
+	in_layer_2 = true
+
+func _on_safe_zone_2_body_exited(body: Node3D) -> void:
+	in_layer_2 = false
+
+
+func _on_safe_zone_3_body_entered(body: Node3D) -> void:
+	in_layer_3 = true
+
+
+func _on_safe_zone_3_body_exited(body: Node3D) -> void:
+	in_layer_3 = false
