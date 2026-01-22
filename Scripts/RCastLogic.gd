@@ -76,6 +76,7 @@ var camera_original_pos: Vector3
 var in_layer_1 = false
 var in_layer_2 = false
 var in_layer_3 = false
+var in_unsafe = false
 
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
@@ -121,6 +122,7 @@ func _input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	var target_text = ""
+	
 	
 	if Input.is_action_just_pressed("ui_accept"): raise_and_drop()
 
@@ -187,6 +189,10 @@ func _physics_process(delta: float) -> void:
 								if str(interactable.required_key) == "3" and interactable.name == "HingeDoor4":
 									$"../../../../Car4/body003_Body_0/Marker3D/PoliceLight".play("Spin")
 									$"../../../../Car4/body003_Body_0/Marker3D/Police".play()
+									in_unsafe = false
+									in_layer_1 = false
+									in_layer_2 = false
+									in_layer_3 = false
 									if ambiance_music:
 										$"../../../../Car4/body003_Body_0/Marker3D/Fade".play("FadeMusic")
 										await Globals.calltime(1)
@@ -742,6 +748,61 @@ func raise_and_drop():
 			camera_shake(0.2, 0.25)
 			$"../../../../Car4/PuzzleElements/Fall".play()
 			$"../../../../Car4/PuzzleElements/OmniLight3D".visible = false
+			
+			$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = true
+			$"../../../../Car4/Debris/Debris_1".visible = false
+			
+			if in_layer_1 == true:
+				$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = true
+				$"../../../../Car4/Debris/Debris_2".visible = false
+			if in_layer_2 == true:
+				$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = true
+				$"../../../../Car4/Debris/Debris_3".visible = false
+			
+			if in_unsafe == true && in_layer_1 == false && in_layer_2 == false && in_layer_3 == false:
+				Globals.playermoveallow = false
+				Globals.playerlookallow = false
+				notification_active = true
+
+				var memory_tween = create_tween().bind_node(self)
+
+				memory_tween.set_parallel()
+				memory_tween.tween_property(post_process, "VignetteIntensity", 200.0, 0.3).set_trans(Tween.TRANS_EXPO)
+				memory_tween.tween_property(post_process, "VignetteOpacity", 1.0, 0.3)
+				memory_tween.tween_property(post_process, "Blur", true, 0.1)
+				memory_tween.tween_property(post_process, "StrenghtCA", 1.0, 0.3)
+				
+				$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = false
+				$"../../../../Car4/Debris/Debris_1".visible = true
+				
+				$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = false
+				$"../../../../Car4/Debris/Debris_2".visible = true
+				
+				$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = false
+				$"../../../../Car4/Debris/Debris_3".visible = true
+
+				memory_tween.chain().tween_interval(1.0)
+
+				memory_tween.chain().tween_callback(func():
+					$"../../..".global_position = Vector3(-108.292, 1.707, 0)
+				)
+				
+				memory_tween.chain().tween_interval(2.0)
+				
+				memory_tween.chain().tween_callback($"../../../Dizzy".play).set_delay(0.5)
+
+				memory_tween.chain().set_parallel()
+				memory_tween.tween_property(post_process, "VignetteIntensity", 0.0, 4.0).set_trans(Tween.TRANS_SINE)
+				memory_tween.tween_property(post_process, "VignetteOpacity", 0.0, 4.0)
+				memory_tween.tween_property(post_process, "StrenghtCA", 0.0, 3.5)
+				
+				memory_tween.chain().tween_callback(func(): post_process.Blur = false)
+
+				await memory_tween.finished
+				
+				Globals.playermoveallow = true
+				Globals.playerlookallow = true
+			
 		)
 	)
 	
@@ -772,21 +833,40 @@ func camera_shake(intensity: float = 0.15, duration: float = 0.2):
 
 func _on_safe_zone_1_body_entered(body: Node3D) -> void:
 	in_layer_1 = true
-
+	
+	print("in 1")
 
 func _on_safe_zone_1_body_exited(body: Node3D) -> void:
 	in_layer_1 = false
+	
+	print("out 1")
 
 func _on_safe_zone_2_body_entered(body: Node3D) -> void:
 	in_layer_2 = true
+	
+	print("in 2")
 
 func _on_safe_zone_2_body_exited(body: Node3D) -> void:
 	in_layer_2 = false
-
+	
+	print("out 2")
 
 func _on_safe_zone_3_body_entered(body: Node3D) -> void:
 	in_layer_3 = true
-
+	
+	print("in 3")
 
 func _on_safe_zone_3_body_exited(body: Node3D) -> void:
 	in_layer_3 = false
+	
+	print("out 3")
+
+func _on_unsafe_body_entered(body: Node3D) -> void:
+	in_unsafe = true
+	
+	print("in unsafe")
+
+func _on_unsafe_body_exited(body: Node3D) -> void:
+	in_unsafe = false
+	
+	print("out unsafe")
