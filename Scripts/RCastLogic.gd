@@ -821,6 +821,8 @@ func raise_and_drop():
 
 				await memory_tween.finished
 				
+				notification_active = false
+				
 				Globals.playermoveallow = true
 				Globals.playerlookallow = true
 			
