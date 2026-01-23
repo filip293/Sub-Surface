@@ -17,6 +17,8 @@ extends RayCast3D
 
 @onready var debris := $"../../../../Car4/Debris"
 
+@onready var M_neck: BoneAttachment3D = $"../../../../Car4/CarSeat/mannequin2/Skeleton3D/BoneAttachment3D"
+
 var post_process = load("res://Scripts/PostProcess.tres")
 
 # --- LIQUID SYSTEM VARIABLES (DRAG THESE IN INSPECTOR) ---
@@ -45,6 +47,7 @@ var item_original_transforms: Dictionary = {}
 var active_item: Node3D = null
 var item_active: bool = false
 var item_tween: Tween = null
+var is_following := false
 
 var is_dragging_item: bool = false
 var drag_sensitivity: float = 0.01
@@ -57,11 +60,14 @@ var EndOfKeypad := false
 var MannequinAnimation := false
 
 var has_played_door2_music := false 
+var has_played_door3_music := false
 
 var doll_shaking := false
 
 var is_reading := false
 var r_key_was_pressed := false
+
+var key4first = true
 
 var monster_active := false
 var monster_seen := false
@@ -123,8 +129,17 @@ func _input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	var target_text = ""
 	
-	
-	if Input.is_action_just_pressed("ui_accept"): raise_and_drop()
+	if is_following:
+		look_neck_at_camera()
+		
+	if Globals.player_keys.has("4") and key4first == true:
+		$"../../../../Car4/CarSeat/mannequin2/Sad".play()
+		var door = $"../../../../Car4/HingeDoor4"
+		if door and door.has_method("_toggle_door") and door.is_open:
+			door._toggle_door()
+		is_following = true
+		key4first = false
+
 
 	if MannequinAnimation and not $"../../../../Car1/mannequin/AnimationPlayer".is_playing():
 		$"../../../../Car1/mannequin/AnimationPlayer".play("mixamo_com")
@@ -185,7 +200,7 @@ func _physics_process(delta: float) -> void:
 									if ambiance_music:
 										ambiance_music.play()
 									has_played_door2_music = true
-							if not interactable.is_open:
+							if not interactable.is_open and not has_played_door3_music:
 								if str(interactable.required_key) == "3" and interactable.name == "HingeDoor4":
 									$"../../../../Car4/body003_Body_0/Marker3D/PoliceLight".play("Spin")
 									$"../../../../Car4/body003_Body_0/Marker3D/Police".play()
@@ -193,13 +208,21 @@ func _physics_process(delta: float) -> void:
 									in_layer_1 = false
 									in_layer_2 = false
 									in_layer_3 = false
+									$"../../../../Car5".visible = true
+									has_played_door3_music = true
 									if ambiance_music:
 										$"../../../../Car4/body003_Body_0/Marker3D/Fade".play("FadeMusic")
-										await Globals.calltime(1)
+										await get_tree().create_timer(1).timeout
 										ambiance_music.stop()
 										ambiance_music.queue_free()
 										$"../../../../AmbianceMUSIC2".play()
+										repeat_fall()
 									playcar4sounds()
+							if not interactable.is_open:
+								if str(interactable.required_key) == "4" and interactable.name == "HingeDoor5":
+									is_following = false
+									$"../../../../AmbianceMUSIC2".stop()
+									$"../../TrainSound".stop()
 									
 							interactable.interact()
 					else:
@@ -350,7 +373,6 @@ func _physics_process(delta: float) -> void:
 	if not notification_active:
 		_animate_label(target_text)
 
-# --- LIQUID LOGIC FUNCTIONS ---
 
 func add_liquid_from_vile(color_str: String, vile_object: Node3D):
 	if current_mix.has(color_str): return
@@ -473,7 +495,6 @@ func trigger_blurry_vision():
 				v.collision_layer = 1 
 	consumed_viles.clear()
 	
-	# 2. ANIMATED DIZZY EFFECT (Realistic & Fading)
 	
 	post_process.Blur = true
 	
@@ -717,11 +738,11 @@ func _on_visible_on_screen_notifier_3d_screen_entered() -> void:
 		
 		
 func playcar4sounds():
-	await Globals.calltime(5)
+	await get_tree().create_timer(5).timeout
 	$"../../../../Car4/PuzzleElements/TireSq".play()
-	await Globals.calltime(20)
+	await get_tree().create_timer(10).timeout
 	$"../../../../Car4/PuzzleElements/CarCrashMetal".play()
-	await Globals.calltime(20)
+	await get_tree().create_timer(10).timeout
 	$"../../../../Car4/PuzzleElements/Voice".play()
 
 func raise_and_drop():
@@ -806,6 +827,10 @@ func raise_and_drop():
 		)
 	)
 	
+func repeat_fall():
+	while !Globals.player_keys.has("4"):
+		raise_and_drop()
+		await Globals.calltime(6)
 
 	
 func camera_shake(intensity: float = 0.15, duration: float = 0.2):
@@ -870,3 +895,22 @@ func _on_unsafe_body_exited(body: Node3D) -> void:
 	in_unsafe = false
 	
 	print("out unsafe")
+	
+
+
+
+
+func look_neck_at_camera():
+	var neck_pos: Vector3 = M_neck.global_position
+	var target_pos: Vector3 = camera.global_position
+	target_pos.y = neck_pos.y
+
+	var target_transform := M_neck.global_transform.looking_at(target_pos, Vector3.UP)
+
+	# Flip forward axis
+	target_transform.basis = target_transform.basis.rotated(Vector3.UP, PI)
+
+	M_neck.global_transform = M_neck.global_transform.interpolate_with(
+		target_transform,
+		0.08
+	)
