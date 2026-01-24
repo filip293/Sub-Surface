@@ -84,6 +84,10 @@ var in_layer_2 = false
 var in_layer_3 = false
 var in_unsafe = false
 
+
+var debris_tween: Tween
+var debris_start_pos := Vector3.ZERO
+
 var keypad_sounds = [
 	preload("res://Sounds/ButtonPress.mp3"),
 	preload("res://Sounds/Accept.mp3"),
@@ -133,10 +137,33 @@ func _physics_process(delta: float) -> void:
 		look_neck_at_camera()
 		
 	if Globals.player_keys.has("4") and key4first == true:
+		
+		if debris_tween and debris_tween.is_valid():
+			debris_tween.kill()
+
+		$"../../../../Car4/PuzzleElements/CryWoman".stop()
+		$"../../../../Car4/PuzzleElements/Tension2".stop()
+		$"../../../../Car4/PuzzleElements/Fall".stop()
+		$"../../../../Car4/PuzzleElements/OmniLight3D".visible = false
+		
+		# Return the debris to its starting position so it isn't left floating
+		if debris_start_pos != Vector3.ZERO:
+			debris.global_position = debris_start_pos
+		
 		$"../../../../Car4/CarSeat/mannequin2/Sad".play()
 		var door = $"../../../../Car4/HingeDoor4"
 		if door and door.has_method("_toggle_door") and door.is_open:
 			door._toggle_door()
+			$"../../../../Car4/HingeDoor4".set_collision_layer_value(9, false)
+			await get_tree().create_timer(1).timeout
+			if $"../../../../Car3" != null:
+				$"../../../../Car3".queue_free()
+		else:
+			$"../../../../Car4/HingeDoor4".set_collision_layer_value(9, false)
+			await get_tree().create_timer(1).timeout
+			if $"../../../../Car3" != null:
+				$"../../../../Car3".queue_free()
+			
 		is_following = true
 		key4first = false
 
@@ -430,6 +457,13 @@ func drink_potion():
 		var door = $"../../../../Car3/HingeDoor2"
 		if door and door.has_method("_toggle_door") and door.is_open:
 			door._toggle_door()
+			$"../../../../Car3/HingeDoor2".set_collision_layer_value(9, false)
+			await get_tree().create_timer(1).timeout
+			$"../../../../Car2".queue_free()
+		else:
+			$"../../../../Car3/HingeDoor2".set_collision_layer_value(9, false)
+			await get_tree().create_timer(1).timeout
+			$"../../../../Car2".queue_free()
 
 		if not Globals.player_keys.has("3"):
 			Globals.player_keys.append("3")
@@ -746,87 +780,92 @@ func playcar4sounds():
 	$"../../../../Car4/PuzzleElements/Voice".play()
 
 func raise_and_drop():
-	var start_pos: Vector3 = debris.global_position
-	var up_pos: Vector3 = start_pos + Vector3(0, 2, 0)
+	# Store the starting position so we can reset it if interrupted
+	debris_start_pos = debris.global_position
+	var up_pos: Vector3 = debris_start_pos + Vector3(0, 2, 0)
 	
-	$"../../../../Car4/PuzzleElements/CryWoman".play()
+	# Kill any previous tween to prevent conflicts
+	if debris_tween and debris_tween.is_valid():
+		debris_tween.kill()
+		
+	# Create a new, single tween for the whole sequence
+	debris_tween = create_tween().bind_node(self)
+
+	debris_tween.tween_callback($"../../../../Car4/PuzzleElements/CryWoman".play)
+	debris_tween.tween_interval(1.0)
 	
-	await Globals.calltime(1)
-	$"../../../../Car4/PuzzleElements/OmniLight3D".visible = true
+	debris_tween.tween_callback(func():
+		$"../../../../Car4/PuzzleElements/OmniLight3D".visible = true
+		$"../../../../Car4/PuzzleElements/Tension2".play()
+	)
 	
-	var rise := create_tween()
-	rise.tween_property(debris, "global_position", up_pos, 3.4)
-	$"../../../../Car4/PuzzleElements/Tension2".play()
+	debris_tween.tween_property(debris, "global_position", up_pos, 3.4)
+	
+	debris_tween.tween_interval(0.35)
+	
+	debris_tween.tween_property(debris, "global_position", debris_start_pos, 0.5)
 
-	rise.finished.connect(func ():
-		var fall := create_tween()
+	debris_tween.tween_callback(func ():
+		camera_shake(0.2, 0.25)
+		$"../../../../Car4/PuzzleElements/Fall".play()
+		$"../../../../Car4/PuzzleElements/OmniLight3D".visible = false
+		
+		$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = true
+		$"../../../../Car4/Debris/Debris_1".visible = false
+		
+		if in_layer_1 == true:
+			$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = true
+			$"../../../../Car4/Debris/Debris_2".visible = false
+		if in_layer_2 == true:
+			$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = true
+			$"../../../../Car4/Debris/Debris_3".visible = false
+		
+		if in_unsafe == true && in_layer_1 == false && in_layer_2 == false && in_layer_3 == false:
+			Globals.playermoveallow = false
+			Globals.playerlookallow = false
+			notification_active = true
 
-		fall.tween_interval(0.35)
+			var memory_tween = create_tween().bind_node(self)
 
-		fall.tween_property(debris, "global_position", start_pos, 0.5)
-
-		fall.finished.connect(func ():
-			camera_shake(0.2, 0.25)
-			$"../../../../Car4/PuzzleElements/Fall".play()
-			$"../../../../Car4/PuzzleElements/OmniLight3D".visible = false
+			memory_tween.set_parallel()
+			memory_tween.tween_property(post_process, "VignetteIntensity", 200.0, 0.3).set_trans(Tween.TRANS_EXPO)
+			memory_tween.tween_property(post_process, "VignetteOpacity", 1.0, 0.3)
+			memory_tween.tween_property(post_process, "Blur", true, 0.1)
+			memory_tween.tween_property(post_process, "StrenghtCA", 1.0, 0.3)
 			
-			$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = true
-			$"../../../../Car4/Debris/Debris_1".visible = false
+			$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = false
+			$"../../../../Car4/Debris/Debris_1".visible = true
 			
-			if in_layer_1 == true:
-				$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = true
-				$"../../../../Car4/Debris/Debris_2".visible = false
-			if in_layer_2 == true:
-				$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = true
-				$"../../../../Car4/Debris/Debris_3".visible = false
+			$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = false
+			$"../../../../Car4/Debris/Debris_2".visible = true
 			
-			if in_unsafe == true && in_layer_1 == false && in_layer_2 == false && in_layer_3 == false:
-				Globals.playermoveallow = false
-				Globals.playerlookallow = false
-				notification_active = true
+			$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = false
+			$"../../../../Car4/Debris/Debris_3".visible = true
 
-				var memory_tween = create_tween().bind_node(self)
+			memory_tween.chain().tween_interval(1.0)
 
-				memory_tween.set_parallel()
-				memory_tween.tween_property(post_process, "VignetteIntensity", 200.0, 0.3).set_trans(Tween.TRANS_EXPO)
-				memory_tween.tween_property(post_process, "VignetteOpacity", 1.0, 0.3)
-				memory_tween.tween_property(post_process, "Blur", true, 0.1)
-				memory_tween.tween_property(post_process, "StrenghtCA", 1.0, 0.3)
-				
-				$"../../../../Car4/PuzzleElements/SafeMarker_1".visible = false
-				$"../../../../Car4/Debris/Debris_1".visible = true
-				
-				$"../../../../Car4/PuzzleElements/SafeMarker_2".visible = false
-				$"../../../../Car4/Debris/Debris_2".visible = true
-				
-				$"../../../../Car4/PuzzleElements/SafeMarker_3".visible = false
-				$"../../../../Car4/Debris/Debris_3".visible = true
-
-				memory_tween.chain().tween_interval(1.0)
-
-				memory_tween.chain().tween_callback(func():
-					$"../../..".global_position = Vector3(-108.292, 1.707, 0)
-				)
-				
-				memory_tween.chain().tween_interval(2.0)
-				
-				memory_tween.chain().tween_callback($"../../../Dizzy".play).set_delay(0.5)
-
-				memory_tween.chain().set_parallel()
-				memory_tween.tween_property(post_process, "VignetteIntensity", 0.0, 4.0).set_trans(Tween.TRANS_SINE)
-				memory_tween.tween_property(post_process, "VignetteOpacity", 0.0, 4.0)
-				memory_tween.tween_property(post_process, "StrenghtCA", 0.0, 3.5)
-				
-				memory_tween.chain().tween_callback(func(): post_process.Blur = false)
-
-				await memory_tween.finished
-				
-				notification_active = false
-				
-				Globals.playermoveallow = true
-				Globals.playerlookallow = true
+			memory_tween.chain().tween_callback(func():
+				$"../../..".global_position = Vector3(-108.292, 1.707, 0)
+			)
 			
-		)
+			memory_tween.chain().tween_interval(2.0)
+			
+			memory_tween.chain().tween_callback($"../../../Dizzy".play).set_delay(0.5)
+
+			memory_tween.chain().set_parallel()
+			memory_tween.tween_property(post_process, "VignetteIntensity", 0.0, 4.0).set_trans(Tween.TRANS_SINE)
+			memory_tween.tween_property(post_process, "VignetteOpacity", 0.0, 4.0)
+			memory_tween.tween_property(post_process, "StrenghtCA", 0.0, 3.5)
+			
+			memory_tween.chain().tween_callback(func(): post_process.Blur = false)
+
+			await memory_tween.finished
+			
+			await get_tree().create_timer(3.0).timeout
+			notification_active = false
+			
+			Globals.playermoveallow = true
+			Globals.playerlookallow = true
 	)
 	
 func repeat_fall():
