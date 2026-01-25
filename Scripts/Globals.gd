@@ -3,7 +3,7 @@ extends Node
 @onready var BaseTime = $/root/Node3D/BaseTime
 signal timeend
 
-var mouse_sensitivity = 0.2
+var mouse_sensitivity = 0.1
 var playermoveallow = true
 var playerlookallow = true
 var player_keys: Array[String] = []

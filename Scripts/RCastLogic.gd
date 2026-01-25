@@ -101,16 +101,9 @@ func _ready() -> void:
 	label.text = ""
 	label.modulate.a = 0.0
 	current_displayed_text = ""
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	if liquid_node:
-		liquid_node.scale.y = 0
-		liquid_node.visible = false
-	else:
-		printerr("CRITICAL ERROR: 'liquid_node' is not assigned in the Inspector!")
+	$"../../../../Menu/Subway3".play("Lights")
 
-	if liquid_mesh_visual:
-		if liquid_mesh_visual.get_active_material(0):
-			liquid_mesh_visual.material_override = liquid_mesh_visual.get_active_material(0).duplicate()
+
 
 func _input(event: InputEvent) -> void:
 	if not item_active or not active_item:
@@ -1018,4 +1011,25 @@ func _on_area_3d_body_entered(body: Node3D) -> void:
 		$"../../../../End/CanvasLayer".visible = true
 		Globals.playermoveallow = false
 		Globals.playerlookallow = false
-		
+		await get_tree().create_timer(10).timeout
+		get_tree().quit()
+
+
+func _on_button_pressed() -> void:
+	$"..".current = true
+	$"../../../../POV/CanvasLayer/Crosshair".visible = true
+	$"../../../../Menu/Ambient".stop()
+	$"../../../../Menu/Subway3".stop()
+	
+	label.text = ""
+	label.modulate.a = 0.0
+	current_displayed_text = ""
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if liquid_node:
+		liquid_node.scale.y = 0
+		liquid_node.visible = false
+
+
+	if liquid_mesh_visual:
+		if liquid_mesh_visual.get_active_material(0):
+			liquid_mesh_visual.material_override = liquid_mesh_visual.get_active_material(0).duplicate()
