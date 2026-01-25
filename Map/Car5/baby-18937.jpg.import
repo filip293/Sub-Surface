@@ -2,24 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ds16lthgy58h3"
-path.s3tc="res://.godot/imported/car_seat_1.png-99158aec264e62ba611c03b2960e38a1.s3tc.ctex"
+uid="uid://qjv22uxlycxb"
+path="res://.godot/imported/baby-18937.jpg-a0fbc311b76add9217d8c1783dc2cbf5.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "bb9a6e28a6a598db1d9c3ec50f6966c5"
+"vram_texture": false
 }
 
 [deps]
 
-source_file="res://Map/Car5/car_seat_1.png"
-dest_files=["res://.godot/imported/car_seat_1.png-99158aec264e62ba611c03b2960e38a1.s3tc.ctex"]
+source_file="res://Map/Car5/baby-18937.jpg"
+dest_files=["res://.godot/imported/baby-18937.jpg-a0fbc311b76add9217d8c1783dc2cbf5.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -27,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -41,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1
