@@ -84,6 +84,9 @@ var in_layer_2 = false
 var in_layer_3 = false
 var in_unsafe = false
 
+var first4 = true
+var first6 = true
+
 
 var debris_tween: Tween
 var debris_start_pos := Vector3.ZERO
@@ -152,18 +155,20 @@ func _physics_process(delta: float) -> void:
 		
 		$"../../../../Car4/CarSeat/mannequin2/Sad".play()
 		var door = $"../../../../Car4/HingeDoor4"
-		if door and door.has_method("_toggle_door") and door.is_open:
+		if door and door.has_method("_toggle_door") and door.is_open and first4:
 			door._toggle_door()
 			$"../../../../Car4/HingeDoor4".set_collision_layer_value(9, false)
 			await get_tree().create_timer(1).timeout
 			if $"../../../../Car3" != null:
 				$"../../../../Car3".queue_free()
+				first4 = false
 		else:
 			$"../../../../Car4/HingeDoor4".set_collision_layer_value(9, false)
 			await get_tree().create_timer(1).timeout
 			if $"../../../../Car3" != null:
 				$"../../../../Car3".queue_free()
-			
+				first4 = false
+
 		is_following = true
 		key4first = false
 
@@ -250,6 +255,7 @@ func _physics_process(delta: float) -> void:
 									is_following = false
 									$"../../../../AmbianceMUSIC2".stop()
 									$"../../TrainSound".stop()
+									playcar5sounds()
 									
 							interactable.interact()
 					else:
@@ -473,7 +479,7 @@ func drink_potion():
 
 		Globals.playermoveallow = false
 		Globals.playerlookallow = false
-		notification_active = true
+		notification_active = false
 
 		var memory_tween = create_tween().bind_node(self)
 
@@ -499,6 +505,7 @@ func drink_potion():
 		memory_tween.tween_property(post_process, "StrenghtCA", 0.0, 3.5)
 		
 		memory_tween.chain().tween_callback(func(): post_process.Blur = false)
+		memory_tween.chain().tween_callback(func(): notification_active = true)
 		memory_tween.chain().tween_callback(func(): _animate_label("Key 3 found"))
 
 		await memory_tween.finished
@@ -778,7 +785,50 @@ func playcar4sounds():
 	$"../../../../Car4/PuzzleElements/CarCrashMetal".play()
 	await get_tree().create_timer(10).timeout
 	$"../../../../Car4/PuzzleElements/Voice".play()
-
+	
+func playcar5sounds():
+	await get_tree().create_timer(2).timeout
+	$"../../../../Car5/Cot/MusicBox/AnimationPlayer".play("Take 001")
+	$"../../../../Car5/Cot/MusicBox/AudioStreamPlayer3D".play()
+	await get_tree().create_timer(35).timeout
+	$"../../../../Car5/body003_Body_0/VoiceElara".play()
+	await get_tree().create_timer(10).timeout
+	$"../../../../Car5/body003_Body_0/BabyCry".play()
+	await get_tree().create_timer(0.01).timeout
+	$"../../../../Car5/body003_Body_0/BabyCry2".play()
+	await get_tree().create_timer(0.01).timeout
+	$"../../../../Car5/body003_Body_0/BabyCry3".play()
+	await get_tree().create_timer(0.01).timeout
+	$"../../../../Car5/body003_Body_0/BabyCry4".play()
+	await get_tree().create_timer(10).timeout
+	$"../../../../Car5/body003_Body_0/Light1".play()
+	$"../../../../Car5/body003_Body_0/Light2".play()
+	$"../../../../Car5/body003_Body_0/Light3".play()
+	$"../../../../Car5/body003_Body_0/Light4".play()
+	$"../../../../Car5/body003_Body_0/Light5".play()
+	$"../../../../Car5/body003_Body_0/Light6".play()
+	$"../../../../Car5/body003_Body_0/Light7".play()
+	$"../../../../Car5/body003_Body_0/Light8".play()
+	$"../../../../Car5/body003_Body_0/Light9".play()
+	$"../../../../Car5/body003_Body_0/OmniLight3D".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D2".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D3".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D4".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D5".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D6".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D7".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D8".visible = false
+	$"../../../../Car5/body003_Body_0/OmniLight3D9".visible = false
+	$"../SpotLight3D".visible = false
+	await get_tree().create_timer(5).timeout
+	$"../../../../Car5/body003_Body_0/OmniLight3D9".visible = true
+	$"../../../../Car5/body003_Body_0/Light9".play()
+	var door = $"../../../../Car5/OutsideDoorL"
+	door._toggle_door()
+	$"../../../../Car5/OutsideDoorL".set_collision_layer_value(9, false)
+	
+	
+	
 func raise_and_drop():
 	# Store the starting position so we can reset it if interrupted
 	debris_start_pos = debris.global_position
@@ -955,3 +1005,17 @@ func look_neck_at_camera():
 		target_transform,
 		0.08
 	)
+
+
+func _on_area_3d_body_entered(body: Node3D) -> void:
+	if first6:
+		$"../../../../Car6/Area3D/JohnConfused".play()
+		first6 = false
+		await get_tree().create_timer(3.8).timeout
+		$"../../../../Car6/Area3D/End".play()
+		await get_tree().create_timer(4.8).timeout
+		$"../../../../POV/CanvasLayer".visible = false
+		$"../../../../End/CanvasLayer".visible = true
+		Globals.playermoveallow = false
+		Globals.playerlookallow = false
+		

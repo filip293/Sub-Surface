@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bc8s0ua5s53ab"
+path="res://.godot/imported/MusicBox .mp3-83b20b6e14d07b6a9db93f5c2869b81f.mp3str"
+
+[deps]
+
+source_file="res://Map/Car5/MusicBox .mp3"
+dest_files=["res://.godot/imported/MusicBox .mp3-83b20b6e14d07b6a9db93f5c2869b81f.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
