@@ -1011,9 +1011,9 @@ func _on_area_3d_body_entered(body: Node3D) -> void:
 	if first6:
 		$"../../../../Car6/Area3D/JohnConfused".play()
 		first6 = false
-		await get_tree().create_timer(3.8).timeout
+		await get_tree().create_timer(3.08).timeout
 		$"../../../../Car6/Area3D/End".play()
-		await get_tree().create_timer(4.8).timeout
+		await get_tree().create_timer(3.7).timeout
 		$"../../../../POV/CanvasLayer".visible = false
 		$"../../../../End/CanvasLayer".visible = true
 		Globals.playermoveallow = false
